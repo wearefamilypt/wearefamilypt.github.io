@@ -59,6 +59,7 @@ textarea{min-height:110px;resize:vertical}
 .login .btn{background:var(--snow);color:var(--pine);font-size:1.05rem;padding:12px 22px}
 .warn{background:#fff3cd;color:#664d03;border-radius:10px;padding:12px 14px;margin-bottom:14px}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--snow);color:var(--ink);padding:10px 18px;border-radius:10px;box-shadow:0 6px 24px #0006;z-index:9}
+canvas#game{display:block;margin:10px auto;width:100%;max-width:320px;aspect-ratio:320/460;background:#0f2a45;border-radius:12px;touch-action:none;cursor:crosshair}
 .evsw{display:flex;gap:8px;margin-bottom:12px}
 .evsw button{flex:1;padding:10px;border-radius:10px;border:2px solid var(--gold);background:transparent;color:var(--gold);font-weight:700;cursor:pointer}
 .evsw button[aria-pressed=true]{background:var(--gold);color:var(--pine)}
@@ -93,6 +94,24 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
   <section class="login" id="denied" hidden>
     <h2>Acesso reservado à família</h2>
     <p>A conta <b id="deniedMail"></b> ainda não está autorizada. Pede a um administrador para a adicionar e volta a entrar. Podes usar o botão «Sair» para trocar de conta.</p>
+  </section>
+
+  <section id="fake" hidden>
+    <div class="card">
+      <h2>Painel de Administração Suprema</h2>
+      <p class="hint">Acesso concedido. Usa estes poderes com sabedoria.</p>
+      <div class="stats"><div><b>3 244</b>contas ativas</div><div><b>87</b>bacalhaus registados</div><div><b>100%</b>nível de caos</div></div>
+      <h3>Utilizadores</h3>
+      <ul class="list" id="fList"></ul>
+    </div>
+    <div class="card">
+      <h2>Terminar sessão</h2>
+      <p class="hint">Por motivos de segurança máxima, para terminar sessão tens de marcar <b>67 pontos</b> no Bubble Shooter. Toca ou clica no ecrã para disparar.</p>
+      <div class="stats"><div><b id="fScore">0</b>de 67 pontos</div></div>
+      <canvas id="game"></canvas>
+      <p id="fDone" hidden><b>🎉 67 pontos!</b> Era tudo a feijoada: este painel era de brincadeira e não tens acesso real. Pede ao administrador verdadeiro para te autorizar.</p>
+      <button class="btn" id="btnFakeOut" hidden>Terminar sessão</button>
+    </div>
   </section>
 
   <main id="app" hidden>
@@ -179,6 +198,12 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
       <p><button class="btn" id="btnAddMember">Autorizar</button></p>
       <ul class="list" id="mList"></ul>
 
+      <h3>Convidados de brincadeira 🎭</h3>
+      <p class="hint">Estes emails veem um painel de administração falso (sem qualquer acesso a dados reais) e só terminam sessão depois de marcarem 67 pontos no Bubble Shooter.</p>
+      <textarea id="fMail" style="min-height:60px" placeholder="amigo@gmail.com"></textarea>
+      <p><button class="btn" id="btnAddFake">Adicionar convidado</button></p>
+      <ul class="list" id="fkList"></ul>
+
       <h3>Administradores autorizados</h3>
       <p class="hint">Só estes emails Google acedem a este painel.</p>
       <div class="row"><input id="aMail" type="email" placeholder="email@gmail.com"><button class="btn" id="btnAddAdmin" style="flex:0 0 auto">Autorizar</button></div>
@@ -215,7 +240,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 let user = null, isAdmin = false, unsubs = [], filled = {}, cur = "natal";
-let events = {}, data = {};
+let events = {}, data = {}, game = null;
 
 // ---------- Login ----------
 $("btnIn").onclick = async () => {
@@ -226,17 +251,21 @@ $("btnOut").onclick = () => signOut(auth);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 onAuthStateChanged(auth, async u => {
-  unsubs.forEach(f => f()); unsubs = []; filled = {};
+  game?.stop(); game = null; unsubs.forEach(f => f()); unsubs = []; filled = {};
   events = {natal:null, ano:null}; data = {rsvps:null, wishes:null, dishes:null, msgs:null};
   user = u; isAdmin = false;
-  $("login").hidden = !!u; $("app").hidden = true; $("denied").hidden = true; $("who").hidden = !u;
+  $("login").hidden = !!u; $("app").hidden = true; $("denied").hidden = true; $("fake").hidden = true; $("who").hidden = !u;
   if (!u) return;
   $("avatar").src = u.photoURL || ""; $("uname").textContent = u.displayName || u.email; $("uname").title = u.email;
   try { isAdmin = (await getDoc(doc(db, "admins", u.email.toLowerCase()))).exists(); } catch (e) { isAdmin = false; console.error(e); toast("Erro ao verificar administrador: " + (e.code || e.message)); }
   $("adminBadge").hidden = !isAdmin; $("tabAdmin").hidden = !isAdmin;
   let ok = isAdmin;
   if (!ok) { try { ok = (await getDoc(doc(db, "members", u.email.toLowerCase()))).exists(); } catch (e) { ok = false; console.error(e); } }
-  $("deniedMail").textContent = u.email; $("denied").hidden = ok; $("app").hidden = !ok;
+  let fake = false;
+  if (!ok) { try { fake = (await getDoc(doc(db, "fakes", u.email.toLowerCase()))).exists(); } catch (e) { console.error(e); } }
+  $("btnOut").hidden = fake; $("adminBadge").hidden = !(isAdmin || fake);
+  $("deniedMail").textContent = u.email; $("denied").hidden = ok || fake; $("app").hidden = !ok; $("fake").hidden = !fake;
+  if (fake) { startFake(); return; }
   if (!ok) return;
   setEvent(cur); listen();
 });
@@ -276,6 +305,7 @@ function listen() {
   if (isAdmin) {
     watch(collection(db, "admins"), s => showAdmins(s.docs.map(d => d.id)));
     watch(collection(db, "members"), s => showMembers(s.docs.map(d => d.id)));
+    watch(collection(db, "fakes"), s => showFakes(s.docs.map(d => d.id)));
   }
 }
 
@@ -341,6 +371,87 @@ function showMembers(emails) {
   $("mList").innerHTML = emails.length ? emails.sort().map(m => `<li><span>${esc(m)}</span><button class="btn del" data-del="members" data-id="${esc(m)}">Remover</button></li>`).join("") : "<li>Ainda não autorizaste ninguém além dos administradores.</li>";
 }
 
+function showFakes(emails) {
+  $("fkList").innerHTML = emails.length ? emails.sort().map(m => `<li><span>${esc(m)}</span><button class="btn del" data-del="fakes" data-id="${esc(m)}">Remover</button></li>`).join("") : "<li>Nenhum convidado de brincadeira.</li>";
+}
+
+// ---------- Painel falso + Bubble Shooter ----------
+function startFake() {
+  const people = [["Pai Natal", "super-admin"], ["Rena Rudolfo", "admin"], ["Grinch", "bloqueado"], ["Tio que adormece à mesa", "utilizador"], ["Prima do bacalhau", "moderadora"]];
+  $("fList").innerHTML = people.map(p => `<li><span>${p[0]}<small>${p[1]}</small></span><span><button class="btn del" data-fake>Promover</button> <button class="btn del" data-fake>Banir</button></span></li>`).join("");
+  $("fList").onclick = e => { if (e.target.closest("[data-fake]")) toast("Pedido enviado… a aguardar aprovação do Pai Natal 🎅"); };
+  $("fScore").textContent = "0"; $("fDone").hidden = true; $("btnFakeOut").hidden = true;
+  $("btnFakeOut").onclick = () => signOut(auth);
+  game = startGame($("game"), s => {
+    $("fScore").textContent = s;
+    if (s >= 67) { $("fDone").hidden = false; $("btnFakeOut").hidden = false; game.stop(); }
+  });
+}
+
+function startGame(cv, onScore) {
+  const R = 16, W = 320, H = 460, COLS = 9, ROWS = 13, DY = R * 1.732, X0 = 24, SX = W / 2, SY = H - 36;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+  const COL = ["#e63946", "#f4a261", "#2a9d8f", "#4895ef", "#9b5de5"];
+  const pos = (r, c) => [X0 + c * 2 * R + (r % 2 ? R : 0), R + r * DY];
+  let grid, cur, nxt, shot = null, aim = -Math.PI / 2, score = 0, raf, alive = true;
+
+  const fresh = () => { grid = Array.from({length: ROWS}, (_, r) => Array.from({length: COLS}, () => r < 5 ? Math.floor(Math.random() * 5) : -1)); };
+  const rnd = () => { const used = [...new Set(grid.flat().filter(v => v >= 0))]; return used.length ? used[Math.floor(Math.random() * used.length)] : Math.floor(Math.random() * 5); };
+  const nb = (r, c) => (r % 2 ? [[r,c-1],[r,c+1],[r-1,c],[r-1,c+1],[r+1,c],[r+1,c+1]] : [[r,c-1],[r,c+1],[r-1,c-1],[r-1,c],[r+1,c-1],[r+1,c]]).filter(([a, b]) => a >= 0 && a < ROWS && b >= 0 && b < COLS);
+  const flood = (r, c, test) => { const seen = new Set([r + "," + c]), q = [[r, c]]; while (q.length) { const [a, b] = q.pop(); for (const [x, y] of nb(a, b)) { const k = x + "," + y; if (!seen.has(k) && test(x, y)) { seen.add(k); q.push([x, y]); } } } return [...seen].map(s => s.split(",").map(Number)); };
+  const drop = () => {
+    const seen = new Set(), q = [];
+    for (let c = 0; c < COLS; c++) if (grid[0][c] >= 0) { seen.add("0," + c); q.push([0, c]); }
+    while (q.length) { const [a, b] = q.pop(); for (const [x, y] of nb(a, b)) { const k = x + "," + y; if (!seen.has(k) && grid[x][y] >= 0) { seen.add(k); q.push([x, y]); } } }
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (grid[r][c] >= 0 && !seen.has(r + "," + c)) { grid[r][c] = -1; n++; }
+    return n;
+  };
+  const place = () => {
+    let best = null, bd = 1e9;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (grid[r][c] < 0) { const [x, y] = pos(r, c), d = (x - shot.x) ** 2 + (y - shot.y) ** 2; if (d < bd) { bd = d; best = [r, c]; } }
+    if (!best) { shot = null; return; }
+    const [r, c] = best; grid[r][c] = shot.col; shot = null;
+    const g = flood(r, c, (x, y) => grid[x][y] === grid[r][c]);
+    if (g.length >= 3) { const col = grid[r][c]; g.forEach(([a, b]) => grid[a][b] = -1); score += g.length + drop(); onScore(score); }
+    if (grid.flat().every(v => v < 0) || grid[ROWS - 2].some(v => v >= 0)) fresh();
+    cur = nxt; nxt = rnd();
+  };
+  const ball = (x, y, col, r = R) => {
+    ctx.beginPath(); ctx.arc(x, y, r - 1, 0, 7); ctx.fillStyle = COL[col]; ctx.fill();
+    ctx.beginPath(); ctx.arc(x - r / 3, y - r / 3, r / 4, 0, 7); ctx.fillStyle = "rgba(255,255,255,.45)"; ctx.fill();
+  };
+  const draw = () => {
+    ctx.clearRect(0, 0, W, H);
+    grid.forEach((row, r) => row.forEach((v, c) => { if (v >= 0) { const [x, y] = pos(r, c); ball(x, y, v); } }));
+    ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.moveTo(SX, SY); ctx.lineTo(SX + Math.cos(aim) * 90, SY + Math.sin(aim) * 90); ctx.stroke(); ctx.setLineDash([]);
+    ball(SX, SY, shot ? shot.col : cur);
+    if (shot) ball(shot.x, shot.y, shot.col);
+    ball(30, H - 22, nxt, 11);
+  };
+  const step = () => {
+    if (!alive) return;
+    if (shot) for (let i = 0; i < 2 && shot; i++) {
+      shot.x += shot.vx; shot.y += shot.vy;
+      if (shot.x < R) { shot.x = R; shot.vx *= -1; } else if (shot.x > W - R) { shot.x = W - R; shot.vx *= -1; }
+      let hit = shot.y <= R;
+      for (let r = 0; r < ROWS && !hit; r++) for (let c = 0; c < COLS; c++) if (grid[r][c] >= 0) { const [x, y] = pos(r, c); if ((x - shot.x) ** 2 + (y - shot.y) ** 2 < (1.8 * R) ** 2) { hit = true; break; } }
+      if (hit) place();
+    }
+    draw(); raf = requestAnimationFrame(step);
+  };
+  const setAim = e => {
+    const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) * W / b.width, y = (e.clientY - b.top) * H / b.height;
+    aim = Math.max(-Math.PI + .2, Math.min(-.2, Math.atan2(y - SY, x - SX)));
+  };
+  cv.onpointermove = setAim; cv.onpointerdown = setAim;
+  cv.onpointerup = e => { setAim(e); if (!shot) shot = {x: SX, y: SY, vx: Math.cos(aim) * 5, vy: Math.sin(aim) * 5, col: cur}; };
+
+  fresh(); cur = rnd(); nxt = rnd(); raf = requestAnimationFrame(step);
+  return {stop() { alive = false; cancelAnimationFrame(raf); }};
+}
+
 // ---------- Ações ----------
 const run = async (fn, ok) => { try { await fn(); toast(ok); } catch (e) { console.error(e); toast("Erro: " + (e.code || "ligação")); } };
 const myName = () => user.displayName || user.email;
@@ -381,6 +492,12 @@ $("btnAddMember").onclick = () => {
   const list = [...new Set($("mMail").value.toLowerCase().split(/[\s,;]+/).filter(m => /^\S+@\S+\.\S+$/.test(m)))];
   if (!list.length) return toast("Escreve pelo menos um email válido.");
   run(async () => { await Promise.all(list.map(m => setDoc(doc(db, "members", m), {addedBy: user.email, createdAt: serverTimestamp()}))); $("mMail").value = ""; }, list.length + " email(s) autorizado(s)");
+};
+
+$("btnAddFake").onclick = () => {
+  const list = [...new Set($("fMail").value.toLowerCase().split(/[\s,;]+/).filter(m => /^\S+@\S+\.\S+$/.test(m)))];
+  if (!list.length) return toast("Escreve pelo menos um email válido.");
+  run(async () => { await Promise.all(list.map(m => setDoc(doc(db, "fakes", m), {addedBy: user.email, createdAt: serverTimestamp()}))); $("fMail").value = ""; }, "Convidado adicionado 🎭");
 };
 
 document.addEventListener("click", e => {
