@@ -90,6 +90,11 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
     <button class="btn" id="btnIn">Entrar com Google</button>
   </section>
 
+  <section class="login" id="denied" hidden>
+    <h2>Acesso reservado à família</h2>
+    <p>A conta <b id="deniedMail"></b> ainda não está autorizada. Pede a um administrador para a adicionar e volta a entrar. Podes usar o botão «Sair» para trocar de conta.</p>
+  </section>
+
   <main id="app" hidden>
     <div class="evsw" id="evsw">
       <button data-ev="natal" aria-pressed="true">🎄 Natal</button>
@@ -147,7 +152,7 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
 
     <section class="card" data-sec="chat" hidden>
       <h2>Chat da família</h2>
-      <p class="hint">Conversa aberta a todos os que entrarem no site.</p>
+      <p class="hint">Conversa privada, só para a família autorizada.</p>
       <div class="chat" id="chatBox" aria-live="polite"></div>
       <div class="row">
         <input id="cText" maxlength="500" placeholder="Escreve uma mensagem…" autocomplete="off">
@@ -167,6 +172,12 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
       </div>
       <label for="aMsg">Mensagem para a família</label><textarea id="aMsg" maxlength="800"></textarea>
       <p><button class="btn" id="btnEvent">Guardar evento</button></p>
+
+      <h3>Família autorizada</h3>
+      <p class="hint">Só estes emails Google (e os administradores) entram no site. Podes colar vários, separados por vírgula ou por linha.</p>
+      <textarea id="mMail" style="min-height:70px" placeholder="ana@gmail.com, joao@gmail.com"></textarea>
+      <p><button class="btn" id="btnAddMember">Autorizar</button></p>
+      <ul class="list" id="mList"></ul>
 
       <h3>Administradores autorizados</h3>
       <p class="hint">Só estes emails Google acedem a este painel.</p>
@@ -218,11 +229,15 @@ onAuthStateChanged(auth, async u => {
   unsubs.forEach(f => f()); unsubs = []; filled = {};
   events = {natal:null, ano:null}; data = {rsvps:null, wishes:null, dishes:null, msgs:null};
   user = u; isAdmin = false;
-  $("login").hidden = !!u; $("app").hidden = !u; $("who").hidden = !u;
+  $("login").hidden = !!u; $("app").hidden = true; $("denied").hidden = true; $("who").hidden = !u;
   if (!u) return;
   $("avatar").src = u.photoURL || ""; $("uname").textContent = u.displayName || u.email; $("uname").title = u.email;
   try { isAdmin = (await getDoc(doc(db, "admins", u.email.toLowerCase()))).exists(); } catch (e) { isAdmin = false; console.error(e); toast("Erro ao verificar administrador: " + (e.code || e.message)); }
   $("adminBadge").hidden = !isAdmin; $("tabAdmin").hidden = !isAdmin;
+  let ok = isAdmin;
+  if (!ok) { try { ok = (await getDoc(doc(db, "members", u.email.toLowerCase()))).exists(); } catch (e) { ok = false; console.error(e); } }
+  $("deniedMail").textContent = u.email; $("denied").hidden = ok; $("app").hidden = !ok;
+  if (!ok) return;
   setEvent(cur); listen();
 });
 
@@ -258,7 +273,10 @@ function listen() {
   watch(collection(db, "wishes"), s => { data.wishes = snap(s); renderWishes(); });
   watch(collection(db, "dishes"), s => { data.dishes = snap(s); renderDishes(); });
   watch(query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(100)), s => { data.msgs = snap(s).reverse(); renderChat(); });
-  if (isAdmin) watch(collection(db, "admins"), s => showAdmins(s.docs.map(d => d.id)));
+  if (isAdmin) {
+    watch(collection(db, "admins"), s => showAdmins(s.docs.map(d => d.id)));
+    watch(collection(db, "members"), s => showMembers(s.docs.map(d => d.id)));
+  }
 }
 
 function showEvent() {
@@ -319,6 +337,10 @@ function showAdmins(emails) {
   $("aList").innerHTML = emails.map(m => `<li><span>${esc(m)}</span>${m===user.email.toLowerCase()?"<small>tu</small>":`<button class="btn del" data-del="admins" data-id="${esc(m)}">Remover</button>`}</li>`).join("");
 }
 
+function showMembers(emails) {
+  $("mList").innerHTML = emails.length ? emails.sort().map(m => `<li><span>${esc(m)}</span><button class="btn del" data-del="members" data-id="${esc(m)}">Remover</button></li>`).join("") : "<li>Ainda não autorizaste ninguém além dos administradores.</li>";
+}
+
 // ---------- Ações ----------
 const run = async (fn, ok) => { try { await fn(); toast(ok); } catch (e) { console.error(e); toast("Erro: " + (e.code || "ligação")); } };
 const myName = () => user.displayName || user.email;
@@ -353,6 +375,12 @@ $("btnEvent").onclick = () => run(() => setDoc(doc(db, "config", $("aEv").value)
 $("btnAddAdmin").onclick = () => {
   const m = $("aMail").value.trim().toLowerCase(); if (!m.includes("@")) return toast("Escreve um email válido.");
   run(async () => { await setDoc(doc(db, "admins", m), {addedBy: user.email, createdAt: serverTimestamp()}); $("aMail").value = ""; }, "Administrador autorizado");
+};
+
+$("btnAddMember").onclick = () => {
+  const list = [...new Set($("mMail").value.toLowerCase().split(/[\s,;]+/).filter(m => /^\S+@\S+\.\S+$/.test(m)))];
+  if (!list.length) return toast("Escreve pelo menos um email válido.");
+  run(async () => { await Promise.all(list.map(m => setDoc(doc(db, "members", m), {addedBy: user.email, createdAt: serverTimestamp()}))); $("mMail").value = ""; }, list.length + " email(s) autorizado(s)");
 };
 
 document.addEventListener("click", e => {
