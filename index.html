@@ -74,7 +74,9 @@ canvas#game{display:block;margin:10px auto;width:100%;max-width:320px;aspect-rat
 .evsw{display:flex;gap:8px;margin-bottom:12px}
 .evsw button{flex:1;padding:10px;border-radius:10px;border:2px solid var(--gold);background:transparent;color:var(--gold);font-weight:700;cursor:pointer}
 .evsw button[aria-pressed=true]{background:var(--gold);color:var(--pine)}
-body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
+body{--pine2:color-mix(in srgb,var(--pine) 80%,#fff)}
+.chk{display:flex;gap:8px;align-items:center;font-weight:400;margin:4px 0}.chk input{width:auto}
+.msg video{display:block;max-width:100%;max-height:300px;border-radius:8px;margin-top:6px}
 .chat{height:min(55vh,440px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px;background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
 .msg{max-width:82%;padding:8px 12px;border-radius:14px;background:#eceff0;align-self:flex-start;word-break:break-word;white-space:pre-wrap}
 .msg.me{align-self:flex-end;background:var(--berry);color:#fff}
@@ -96,7 +98,8 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
   <div class="garland" aria-hidden="true"></div>
   <div class="warn" id="cfgWarn" hidden>Falta preencher o <code>firebaseConfig</code> no início do script deste ficheiro.</div>
 
-  <section class="login" id="login">
+  <p class="login" id="boot" style="padding:80px 10px">A carregar…</p>
+  <section class="login" id="login" hidden>
     <h2>Vamos juntar a família</h2>
     <p>Entra com a tua conta Google para confirmar presença, deixar a lista de prendas e combinar o que cada um leva.</p>
     <button class="btn" id="btnIn">Entrar com Google</button>
@@ -126,10 +129,7 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
   </section>
 
   <main id="app" hidden>
-    <div class="evsw" id="evsw">
-      <button data-ev="natal" aria-pressed="true">🎄 Natal</button>
-      <button data-ev="ano" aria-pressed="false">🎆 Ano Novo</button>
-    </div>
+    <div class="evsw" id="evsw"></div>
     <nav class="tabs" role="tablist" id="tabs">
       <button role="tab" data-tab="convite" aria-selected="true">Convite</button>
       <button role="tab" data-tab="presenca" aria-selected="false">Presença</button>
@@ -140,7 +140,8 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
     </nav>
 
     <section class="card" data-sec="convite">
-      <h2 id="evTitle">Natal em Família</h2>
+      <img id="evCover" alt="" hidden style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-bottom:12px">
+      <h2 id="evTitle"></h2>
       <div class="hero-date" id="evDate"></div>
       <p id="evPlace" style="margin:4px 0 12px"></p>
       <p id="evMsg" style="white-space:pre-wrap;margin:0"></p>
@@ -183,9 +184,15 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
     <section class="card" data-sec="chat" hidden>
       <h2>Chat</h2>
       <div class="rooms" id="rooms"></div>
+      <button class="btn ghost small" id="btnNewGroup" type="button">➕ Novo grupo</button>
+      <div id="gNew" hidden style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">
+        <label for="gName">Nome do grupo</label><input id="gName" maxlength="40">
+        <label>Quem entra?</label><div id="gPeople"></div>
+        <p><button class="btn small" id="btnGroupCreate" type="button">Criar grupo</button> <button class="btn del" id="btnGroupCancel" type="button">Cancelar</button></p>
+      </div>
       <p class="hint" id="roomHint"></p>
       <div class="chat" id="chatBox" aria-live="polite"></div>
-      <div class="prev" id="cPrev" hidden><img id="cPrevImg" alt="Pré-visualização"><button class="btn del" id="cClear" type="button">Remover imagem</button></div>
+      <div class="prev" id="cPrev" hidden><img id="cPrevImg" alt="Pré-visualização"><span id="cPrevTxt"></span><button class="btn del" id="cClear" type="button">Remover imagem</button></div>
       <div class="send">
         <label class="btn attach" for="cFile" title="Enviar imagem">📷</label>
         <input type="file" id="cFile" accept="image/*" hidden>
@@ -197,16 +204,21 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
 
     <section class="card" data-sec="admin" hidden>
       <h2>Administração</h2>
-      <h3>Datas e dados dos eventos</h3>
-      <label for="aEv">Evento a editar</label>
-      <select id="aEv"><option value="natal">🎄 Natal</option><option value="ano">🎆 Ano Novo</option></select>
-      <label for="aTitle">Título</label><input id="aTitle" maxlength="80">
-      <div class="row">
-        <div><label for="aDate">Data e hora</label><input id="aDate" type="datetime-local"></div>
-        <div><label for="aPlace">Local</label><input id="aPlace" maxlength="120"></div>
+      <h3>Festividades</h3>
+      <p class="hint">Cria, edita ou apaga festividades. Sem nenhuma, o site fica só com o chat.</p>
+      <div class="row" id="evPresets" style="margin-bottom:8px"><button class="btn small" data-add="natal" type="button">+ Natal</button><button class="btn small" data-add="ano" type="button">+ Ano Novo</button><button class="btn small" data-add="novo" type="button">+ Outra</button></div>
+      <label for="aEv">Festividade a editar</label><select id="aEv"></select>
+      <div id="evForm" hidden>
+        <div class="row"><div style="flex:0 0 90px"><label for="aEmoji">Emoji</label><input id="aEmoji" maxlength="4"></div><div><label for="aName">Nome do botão</label><input id="aName" maxlength="30"></div></div>
+        <label for="aTitle">Título</label><input id="aTitle" maxlength="80">
+        <div class="row"><div><label for="aDate">Data e hora</label><input id="aDate" type="datetime-local"></div><div><label for="aPlace">Local</label><input id="aPlace" maxlength="120"></div></div>
+        <label for="aMsg">Mensagem para a família</label><textarea id="aMsg" maxlength="800"></textarea>
+        <div class="row"><div><label for="aColor">Cor do fundo</label><input id="aColor" type="color" value="#14352a"></div><div><label for="aAccent">Cor de destaque</label><input id="aAccent" type="color" value="#a8263c"></div></div>
+        <label>Imagem de fundo: <span id="aBgSt"></span></label><input id="aBgFile" type="file" accept="image/*"><button class="btn del" id="aBgClear" type="button" style="margin-top:6px">Remover fundo</button>
+        <label>Imagem de capa: <span id="aCoverSt"></span></label><input id="aCoverFile" type="file" accept="image/*"><button class="btn del" id="aCoverClear" type="button" style="margin-top:6px">Remover capa</button>
+        <label class="chk"><input type="checkbox" id="aGifts"> Tem lista de prendas</label>
+        <p><button class="btn" id="btnEvent" type="button">Guardar</button> <button class="btn del" id="btnEvDel" type="button">Apagar festividade</button></p>
       </div>
-      <label for="aMsg">Mensagem para a família</label><textarea id="aMsg" maxlength="800"></textarea>
-      <p><button class="btn" id="btnEvent">Guardar evento</button></p>
 
       <h3>Família autorizada</h3>
       <p class="hint">Só estes emails Google (e os administradores) entram no site. Podes colar vários, separados por vírgula ou por linha.</p>
@@ -232,8 +244,14 @@ body[data-ev=ano]{--pine:#121a3a;--pine2:#1e2a5a;--berry:#6d3fd0}
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {getAuth,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {initializeAuth,indexedDBLocalPersistence,browserLocalPersistence,browserPopupRedirectResolver,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {getFirestore,doc,getDoc,setDoc,deleteDoc,collection,addDoc,onSnapshot,serverTimestamp,query,orderBy,limit,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import {getStorage, ref as sRef, uploadBytesResumable, getDownloadURL} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import {getMessaging, getToken} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+
+// Chave VAPID (Firebase Console → Definições → Cloud Messaging → Web Push certificates → Gerar par de chaves)
+const VAPID_KEY = "COLE_AQUI_A_CHAVE_VAPID";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5u5rwmE2-r8ScCWPCEalHZ_4bylYeheE",
@@ -248,14 +266,15 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const toast = m => { const t=$("toast"); t.textContent=m; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,3000); };
 const STATUS = {sim:"Vem", nao:"Não vem", talvez:"Talvez"};
-const EVENTS = {natal:"Natal em Família", ano:"Passagem de Ano"};
 
 if (firebaseConfig.apiKey.startsWith("COLE")) $("cfgWarn").hidden = false;
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = initializeAuth(app, {persistence: [indexedDBLocalPersistence, browserLocalPersistence], popupRedirectResolver: browserPopupRedirectResolver});
 const db = getFirestore(app);
+const storage = getStorage(app);
+navigator.storage?.persist?.();
 
-let user = null, isAdmin = false, unsubs = [], filled = {}, cur = "natal";
+let user = null, isAdmin = false, unsubs = [], filled = {}, cur = null, evList = [], pendingSelect = null;
 let events = {}, data = {}, game = null;
 
 // ---------- Login ----------
@@ -270,7 +289,7 @@ onAuthStateChanged(auth, async u => {
   game?.stop(); game = null; resetChat(); unsubs.forEach(f => f()); unsubs = []; filled = {};
   events = {natal:null, ano:null}; data = {rsvps:null, wishes:null, dishes:null, msgs:null};
   user = u; isAdmin = false;
-  $("login").hidden = !!u; $("app").hidden = true; $("denied").hidden = true; $("fake").hidden = true; $("who").hidden = !u;
+  $("boot").hidden = true; $("login").hidden = !!u; $("app").hidden = true; $("denied").hidden = true; $("fake").hidden = true; $("who").hidden = !u;
   if (!u) return;
   $("avatar").src = u.photoURL || ""; $("uname").textContent = u.displayName || u.email; $("uname").title = u.email;
   try { isAdmin = (await getDoc(doc(db, "admins", u.email.toLowerCase()))).exists(); } catch (e) { isAdmin = false; console.error(e); toast("Erro ao verificar administrador: " + (e.code || e.message)); }
@@ -283,7 +302,7 @@ onAuthStateChanged(auth, async u => {
   $("deniedMail").textContent = u.email; $("denied").hidden = ok || fake; $("app").hidden = !ok; $("fake").hidden = !fake;
   if (fake) { startFake(); return; }
   if (!ok) return;
-  setEvent(cur); listen();
+  evList = []; cur = null; listen();
 });
 
 // ---------- Separadores e escolha de evento ----------
@@ -294,30 +313,42 @@ function openTab(n) {
 }
 $("tabs").onclick = e => { const b = e.target.closest("button[data-tab]"); if (b) openTab(b.dataset.tab); };
 
-function setEvent(e) {
-  cur = e; document.body.dataset.ev = e;
-  document.querySelectorAll("#evsw button").forEach(b => b.setAttribute("aria-pressed", b.dataset.ev === e));
-  $("tabPrendas").hidden = e !== "natal";
-  if (e !== "natal" && document.querySelector("#tabs [aria-selected=true]").dataset.tab === "prendas") openTab("convite");
-  filled.r = false; $("aEv").value = e; filled["ev_" + e] = false;
-  showEvent(); fillAdmin(e); renderRsvps(); renderDishes();
+function setEvent(id) {
+  cur = id; const ev = evList.find(e => e.id === id), s = document.body.style;
+  document.querySelectorAll("#evsw button").forEach(b => b.setAttribute("aria-pressed", b.dataset.ev === id));
+  s.setProperty("--pine", ev?.color || "#14352a"); s.setProperty("--berry", ev?.accent || "#a8263c");
+  s.backgroundImage = ev?.bg ? `linear-gradient(rgba(0,0,0,.5),rgba(0,0,0,.5)),url("${ev.bg}")` : "none";
+  s.backgroundSize = "cover"; s.backgroundPosition = "center"; s.backgroundAttachment = "fixed";
+  $("tabPrendas").hidden = !ev?.gifts;
+  const sel = document.querySelector("#tabs [aria-selected=true]");
+  if (!sel || sel.hidden) openTab(evList.length ? "convite" : "chat");
+  filled.r = false; showEvent(); renderRsvps(); renderDishes();
 }
 $("evsw").onclick = e => { const b = e.target.closest("button[data-ev]"); if (b) setEvent(b.dataset.ev); };
-$("aEv").onchange = () => { const k = $("aEv").value; filled["ev_" + k] = false; fillAdmin(k); };
+
+function renderEvents() {
+  evList.sort((a, b) => (a.order || 0) - (b.order || 0));
+  if (!evList.some(e => e.id === cur)) cur = evList[0]?.id || null;
+  $("evsw").innerHTML = evList.map(e => `<button data-ev="${esc(e.id)}" aria-pressed="${e.id === cur}">${esc(e.emoji || "🎉")} ${esc(e.name)}</button>`).join("");
+  const keep = pendingSelect || $("aEv").value; pendingSelect = null;
+  $("aEv").innerHTML = '<option value="">— escolher —</option>' + evList.map(e => `<option value="${esc(e.id)}">${esc(e.emoji || "")} ${esc(e.name)}</option>`).join("");
+  $("aEv").value = evList.some(e => e.id === keep) ? keep : "";
+  fillAdmin();
+  const has = evList.length > 0;
+  $("evsw").hidden = !has;
+  ["convite", "presenca", "pratos"].forEach(t => document.querySelector(`#tabs [data-tab=${t}]`).hidden = !has);
+  setEvent(cur);
+}
 
 // ---------- Dados em tempo real ----------
 const snap = s => s.docs.map(d => ({id: d.id, ...d.data({serverTimestamps: "estimate"})}));
 function listen() {
   const watch = (ref, fn) => unsubs.push(onSnapshot(ref, fn, e => console.error(e)));
-  for (const k of Object.keys(EVENTS)) watch(doc(db, "config", k), s => {
-    events[k] = s.exists() ? s.data() : {};
-    if (k === cur) showEvent();
-    fillAdmin(k);
-  });
+  watch(collection(db, "events"), s => { evList = s.docs.map(d => ({id: d.id, ...d.data()})); renderEvents(); });
   watch(collection(db, "rsvps"), s => { data.rsvps = snap(s); renderRsvps(); });
   watch(collection(db, "wishes"), s => { data.wishes = snap(s); renderWishes(); });
   watch(collection(db, "dishes"), s => { data.dishes = snap(s); renderDishes(); });
-  notifBtn();
+  notifBtn(); pushSetup();
   if (lsGet("lr:" + myMail() + ":geral") === null) lsSet("lr:" + myMail() + ":geral", Date.now());
   setDoc(doc(db, "profiles", myMail()), {email: myMail(), name: user.displayName || user.email, photo: user.photoURL || "", uid: user.uid, seen: serverTimestamp()}, {merge: true}).catch(console.error);
   watch(collection(db, "profiles"), s => { people = s.docs.map(d => d.data()).filter(x => x.email !== myMail()); renderRooms(); });
@@ -335,7 +366,7 @@ function listen() {
     s.docs.forEach(d => dms[d.id] = d.data({serverTimestamps: "estimate"}));
     if (primed.d) s.docChanges().forEach(c => {
       const d = c.doc.data({serverTimestamps: "estimate"});
-      if (c.type !== "removed" && d.lastFrom !== myMail() && !c.doc.metadata.hasPendingWrites) notify(d.lastName || "Mensagem privada", d.lastText || "", c.doc.id);
+      if (c.type !== "removed" && d.lastFrom !== myMail() && !c.doc.metadata.hasPendingWrites) notify(d.isGroup ? d.name : (d.lastName || "Mensagem privada"), (d.isGroup ? d.lastName + ": " : "") + (d.lastText || ""), c.doc.id);
     });
     primed.d = true; renderRooms(); updateBadges();
   });
@@ -347,20 +378,47 @@ function listen() {
 }
 
 function showEvent() {
-  const ev = events[cur] || {};
-  $("evTitle").textContent = ev.title || EVENTS[cur];
+  const ev = evList.find(e => e.id === cur) || {};
+  $("evTitle").textContent = ev.title || ev.name || "";
   $("evDate").textContent = ev.date ? new Date(ev.date).toLocaleString("pt-PT", {dateStyle:"full", timeStyle:"short"}) : "Data a definir";
   $("evPlace").textContent = ev.place ? "📍 " + ev.place : "";
   $("evMsg").textContent = ev.message || "";
+  $("evCover").hidden = !ev.cover; if (ev.cover) $("evCover").src = ev.cover;
 }
 
-function fillAdmin(k) {
-  const ev = events[k];
-  if (!isAdmin || !ev || $("aEv").value !== k || filled["ev_" + k]) return;
-  filled["ev_" + k] = true;
-  $("aTitle").value = ev.title || ""; $("aDate").value = ev.date || "";
-  $("aPlace").value = ev.place || ""; $("aMsg").value = ev.message || "";
+// ---------- Festividades (painel de admin) ----------
+let aBg = "", aCover = "";
+const PRESETS = {
+  natal: {name: "Natal", emoji: "🎄", title: "Natal em Família", color: "#14352a", accent: "#a8263c", gifts: true, order: 1},
+  ano: {name: "Ano Novo", emoji: "🎆", title: "Passagem de Ano", color: "#121a3a", accent: "#6d3fd0", gifts: false, order: 2},
+  novo: {name: "Nova festividade", emoji: "🎉", title: "Nova festividade", color: "#2b3a67", accent: "#c2185b", gifts: false}
+};
+function fillAdmin() {
+  const ev = evList.find(e => e.id === $("aEv").value);
+  $("evForm").hidden = !ev; if (!ev) return;
+  $("aEmoji").value = ev.emoji || ""; $("aName").value = ev.name || ""; $("aTitle").value = ev.title || "";
+  $("aDate").value = ev.date || ""; $("aPlace").value = ev.place || ""; $("aMsg").value = ev.message || "";
+  $("aColor").value = ev.color || "#14352a"; $("aAccent").value = ev.accent || "#a8263c"; $("aGifts").checked = !!ev.gifts;
+  aBg = ev.bg || ""; aCover = ev.cover || "";
+  $("aBgSt").textContent = aBg ? "definida" : "nenhuma"; $("aCoverSt").textContent = aCover ? "definida" : "nenhuma";
 }
+$("aEv").onchange = fillAdmin;
+const pickImg = (inputId, stId, max, lim, set) => $(inputId).onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try { set(await shrink(f, max, lim)); $(stId).textContent = "pronta (clica em Guardar)"; } catch { toast("Imagem demasiado pesada."); }
+};
+pickImg("aBgFile", "aBgSt", 1100, 420000, d => aBg = d);
+pickImg("aCoverFile", "aCoverSt", 900, 320000, d => aCover = d);
+$("aBgClear").onclick = () => { aBg = ""; $("aBgSt").textContent = "removida (clica em Guardar)"; };
+$("aCoverClear").onclick = () => { aCover = ""; $("aCoverSt").textContent = "removida (clica em Guardar)"; };
+$("evPresets").onclick = e => {
+  const b = e.target.closest("[data-add]"); if (!b) return; const k = b.dataset.add;
+  if (k !== "novo" && evList.some(x => x.id === k)) return toast("Essa festividade já existe.");
+  run(async () => {
+    const ref = k === "novo" ? doc(collection(db, "events")) : doc(db, "events", k);
+    pendingSelect = ref.id; await setDoc(ref, {...PRESETS[k], order: PRESETS[k].order || Date.now()});
+  }, "Festividade criada");
+};
 
 const delBtn = (col, id) => isAdmin ? `<button class="btn del" data-del="${col}" data-id="${esc(id)}">Remover</button>` : "";
 
@@ -422,16 +480,44 @@ function notifBtn() {
   b.textContent = p === "granted" ? "🔔 Notificações ativas" : p === "denied" ? "🔕 Bloqueadas no navegador" : "🔔 Ativar notificações";
   b.disabled = p !== "default";
 }
-$("btnNotif").onclick = async () => { await Notification.requestPermission(); notifBtn(); };
+$("btnNotif").onclick = async () => { await Notification.requestPermission(); notifBtn(); pushSetup(); };
+
+async function pushSetup() {
+  if (!("Notification" in window) || Notification.permission !== "granted" || VAPID_KEY.startsWith("COLE") || !navigator.serviceWorker) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const token = await getToken(getMessaging(app), {vapidKey: VAPID_KEY, serviceWorkerRegistration: reg});
+    if (token) await setDoc(doc(db, "tokens", token), {uid: user.uid, email: myMail(), updated: serverTimestamp()});
+  } catch (e) { console.error("push:", e); }
+}
 
 function renderRooms() {
   const g = unreadGroup();
   const list = [...people].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  $("rooms").innerHTML = `<button data-room="geral" aria-pressed="${room === "geral"}">👨‍👩‍👧 Todos${g ? `<span class="dot">${g}</span>` : ""}</button>` +
-    list.map(p => { const id = dmId(p.email); return `<button data-room="${esc(id)}" aria-pressed="${room === id}">${esc((p.name || p.email).split(" ")[0])}${unreadDm(id) ? '<span class="dot">•</span>' : ""}</button>`; }).join("");
-  const p = people.find(x => dmId(x.email) === room);
-  $("roomHint").textContent = room === "geral" ? "Conversa de todos." : "Conversa privada com " + (p ? p.name : "…") + ": só vocês dois a veem.";
+  const groups = Object.entries(dms).filter(([, d]) => d.isGroup).sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const btn = (id, label, badge) => `<button data-room="${esc(id)}" aria-pressed="${room === id}">${label}${badge ? `<span class="dot">${badge}</span>` : ""}</button>`;
+  $("rooms").innerHTML = btn("geral", "👨‍👩‍👧 Todos", g || "") +
+    groups.map(([id, d]) => btn(id, "👥 " + esc(d.name), unreadDm(id) ? "•" : "")).join("") +
+    list.map(p => { const id = dmId(p.email); return btn(id, esc((p.name || p.email).split(" ")[0]), unreadDm(id) ? "•" : ""); }).join("");
+  const d = dms[room], p = people.find(x => dmId(x.email) === room);
+  const who = m => m === myMail() ? "tu" : (people.find(x => x.email === m)?.name || m).split(" ")[0];
+  $("roomHint").textContent = room === "geral" ? "Conversa de todos." : d?.isGroup ? `Grupo «${d.name}» · ${d.members.map(who).join(", ")}` : "Conversa privada com " + (p ? p.name : "…") + ": só vocês dois a veem.";
 }
+
+$("btnNewGroup").onclick = () => {
+  $("gPeople").innerHTML = people.map(p => `<label class="chk"><input type="checkbox" value="${esc(p.email)}"> ${esc(p.name || p.email)}</label>`).join("") || '<p class="hint">Ainda ninguém além de ti entrou no site.</p>';
+  $("gName").value = ""; $("gNew").hidden = false;
+};
+$("btnGroupCancel").onclick = () => { $("gNew").hidden = true; };
+$("btnGroupCreate").onclick = async () => {
+  const name = $("gName").value.trim(), picked = [...$("gPeople").querySelectorAll("input:checked")].map(i => i.value);
+  if (!name || !picked.length) return toast("Dá um nome ao grupo e escolhe pelo menos uma pessoa.");
+  const id = "g_" + doc(collection(db, "dmRooms")).id;
+  try {
+    await setDoc(doc(db, "dmRooms", id), {isGroup: true, name, members: [myMail(), ...picked].sort(), createdBy: myMail(), last: serverTimestamp(), lastFrom: myMail(), lastName: user.displayName || user.email, lastText: "criou o grupo"});
+    $("gNew").hidden = true; openRoom(id);
+  } catch (e) { console.error(e); toast("Erro ao criar grupo: " + (e.code || "")); }
+};
 
 function renderChat() {
   const msgs = room === "geral" ? groupMsgs : dmMsgs;
@@ -442,8 +528,9 @@ function renderChat() {
     const mine = m.uid === user.uid;
     const t = m.createdAt?.toDate ? m.createdAt.toDate().toLocaleString("pt-PT", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"}) : "";
     const del = (mine || (isAdmin && room === "geral")) ? ` <button class="x" data-del="${room === "geral" ? "messages" : "dm"}" data-id="${esc(m.id)}" aria-label="Apagar mensagem">×</button>` : "";
+    const vid = m.video && m.video.startsWith("https://firebasestorage.googleapis.com/") ? `<video src="${esc(m.video)}" controls preload="metadata" playsinline></video>` : "";
     const img = m.image && m.image.startsWith("data:image/") ? `<img src="${m.image}" alt="Imagem enviada">` : "";
-    return `<div class="msg${mine ? " me" : ""}"><small>${esc(m.name)} · ${t}${del}</small>${esc(m.text)}${img}</div>`;
+    return `<div class="msg${mine ? " me" : ""}"><small>${esc(m.name)} · ${t}${del}</small>${esc(m.text)}${img}${vid}</div>`;
   }).join("") : '<p class="hint">Ainda não há mensagens. Diz olá! 👋</p>';
   if (near || changed) box.scrollTop = box.scrollHeight;
   box.dataset.room = room;
@@ -459,44 +546,62 @@ function openRoom(id) {
 $("rooms").onclick = e => { const b = e.target.closest("button[data-room]"); if (b) openRoom(b.dataset.room); };
 document.addEventListener("visibilitychange", () => { if (user && !document.hidden) renderChat(); });
 
-// imagens: redimensionadas e guardadas no próprio Firestore (sem Firebase Storage)
-function shrink(file) {
+// imagens (guardadas no Firestore) e vídeos (Firebase Storage)
+let pendingVideo = null;
+function shrink(file, max = 720, lim = 800000) {
   return new Promise((ok, bad) => {
     const img = new Image(), url = URL.createObjectURL(file);
     img.onload = () => {
-      const k = Math.min(1, 720 / Math.max(img.width, img.height)), cv = document.createElement("canvas");
+      const k = Math.min(1, max / Math.max(img.width, img.height)), cv = document.createElement("canvas");
       cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
       cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
       let q = .7, d = cv.toDataURL("image/jpeg", q);
-      while (d.length > 800000 && q > .3) { q -= .1; d = cv.toDataURL("image/jpeg", q); }
-      d.length > 800000 ? bad() : ok(d);
+      while (d.length > lim && q > .25) { q -= .1; d = cv.toDataURL("image/jpeg", q); }
+      d.length > lim ? bad() : ok(d);
     };
     img.onerror = bad; img.src = url;
   });
 }
+const clearPrev = () => { pendingImg = null; pendingVideo = null; $("cPrev").hidden = true; };
 $("cFile").onchange = async e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
-  try { pendingImg = await shrink(f); $("cPrevImg").src = pendingImg; $("cPrev").hidden = false; } catch { toast("Não consegui ler essa imagem."); }
+  clearPrev();
+  try {
+    if (f.type.startsWith("video/")) {
+      if (f.size > 25 * 1024 * 1024) return toast("O vídeo tem de ter menos de 25 MB.");
+      pendingVideo = f; $("cPrevImg").hidden = true; $("cPrevTxt").textContent = "🎬 " + f.name;
+    } else { pendingImg = await shrink(f); $("cPrevImg").src = pendingImg; $("cPrevImg").hidden = false; $("cPrevTxt").textContent = ""; }
+    $("cPrev").hidden = false;
+  } catch { toast("Não consegui ler esse ficheiro."); }
 };
-$("cClear").onclick = () => { pendingImg = null; $("cPrev").hidden = true; };
+$("cClear").onclick = clearPrev;
 
 async function send() {
-  const text = $("cText").value.trim(), image = pendingImg;
-  if (!text && !image) return;
-  $("cText").value = ""; pendingImg = null; $("cPrev").hidden = true;
-  const msg = {uid: user.uid, name: user.displayName || user.email, text, createdAt: serverTimestamp()};
-  if (image) msg.image = image;
+  const btn = $("btnChat"), text = $("cText").value.trim(), image = pendingImg, video = pendingVideo;
+  if (btn.disabled || (!text && !image && !video)) return;
+  btn.disabled = true;
   try {
+    const msg = {uid: user.uid, name: user.displayName || user.email, text, createdAt: serverTimestamp()};
+    if (image) msg.image = image;
+    if (video) {
+      const r = sRef(storage, `chat/${user.uid}/${Date.now()}-${video.name.replace(/[^\w.-]/g, "_")}`);
+      const task = uploadBytesResumable(r, video, {contentType: video.type});
+      await new Promise((ok, bad) => task.on("state_changed", s => { btn.textContent = Math.round(100 * s.bytesTransferred / s.totalBytes) + "%"; }, bad, ok));
+      msg.video = await getDownloadURL(r);
+    }
     if (room === "geral") await addDoc(collection(db, "messages"), msg);
     else {
-      const other = room.split("__").find(x => x !== myMail());
-      await setDoc(doc(db, "dmRooms", room), {members: [myMail(), other].sort(), last: serverTimestamp(), lastFrom: myMail(), lastName: msg.name, lastText: text ? text.slice(0, 80) : "📷 Imagem"}, {merge: true});
+      const info = {last: serverTimestamp(), lastFrom: myMail(), lastName: msg.name, lastText: text ? text.slice(0, 80) : video ? "🎬 Vídeo" : "📷 Imagem"};
+      if (!room.startsWith("g_")) info.members = [myMail(), room.split("__").find(x => x !== myMail())].sort();
+      await setDoc(doc(db, "dmRooms", room), info, {merge: true});
       await addDoc(collection(db, "dmRooms", room, "messages"), msg);
     }
+    $("cText").value = ""; clearPrev();
   } catch (e) {
-    console.error(e); $("cText").value = text; pendingImg = image; if (image) $("cPrev").hidden = false;
-    toast("Erro ao enviar: " + (e.code || "ligação"));
+    console.error(e);
+    toast(video && /storage/.test(e.code || "") ? "Os vídeos precisam do Firebase Storage ativo (plano Blaze)." : "Erro ao enviar: " + (e.code || "ligação"));
   }
+  btn.disabled = false; btn.textContent = "Enviar";
 }
 $("btnChat").onclick = send;
 $("cText").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); send(); } };
@@ -608,9 +713,19 @@ $("btnDish").onclick = () => {
   run(async () => { await addDoc(collection(db, "dishes"), {uid: user.uid, event: cur, name: myName(), text, createdAt: serverTimestamp()}); $("dText").value = ""; }, "Prato adicionado 🍽️");
 };
 
-$("btnEvent").onclick = () => run(() => setDoc(doc(db, "config", $("aEv").value), {
-  title: $("aTitle").value.trim(), date: $("aDate").value, place: $("aPlace").value.trim(), message: $("aMsg").value.trim()
-}), "Evento guardado");
+$("btnEvent").onclick = () => {
+  const id = $("aEv").value; if (!id) return;
+  run(() => setDoc(doc(db, "events", id), {
+    name: $("aName").value.trim() || "Festividade", emoji: $("aEmoji").value.trim() || "🎉", title: $("aTitle").value.trim(),
+    date: $("aDate").value, place: $("aPlace").value.trim(), message: $("aMsg").value.trim(),
+    color: $("aColor").value, accent: $("aAccent").value, gifts: $("aGifts").checked, bg: aBg, cover: aCover,
+    order: evList.find(e => e.id === id)?.order || Date.now()
+  }), "Festividade guardada");
+};
+$("btnEvDel").onclick = () => {
+  const id = $("aEv").value;
+  if (id && confirm("Apagar esta festividade? As respostas e os pratos ficam guardados, mas deixam de aparecer.")) run(() => deleteDoc(doc(db, "events", id)), "Festividade apagada");
+};
 
 $("btnAddAdmin").onclick = () => {
   const m = $("aMail").value.trim().toLowerCase(); if (!m.includes("@")) return toast("Escreve um email válido.");
