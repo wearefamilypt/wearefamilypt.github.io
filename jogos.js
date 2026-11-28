@@ -346,10 +346,281 @@ const snake = {id: "cobra", name: "Cobra", emoji: "🐍", desc: "Come sem bater.
   }
 };
 
+// ================= NOVOS JOGOS =================
+const mkCanvas = (el, W, H, hint) => {
+  el.innerHTML = `<p class="gs">Pontos: <b id="asc">0</b></p><canvas width="${W}" height="${H}" style="display:block;margin:0 auto;width:100%;max-width:${W}px;background:#0f2a45;border-radius:12px;touch-action:none"></canvas><p class="gs" style="font-weight:400">${hint}</p>`;
+  const cv = el.querySelector("canvas"), sc = el.querySelector("#asc");
+  const pos = e => { const b = cv.getBoundingClientRect(), t = (e.touches && e.touches[0]) || e; return [(t.clientX - b.left) * W / b.width, (t.clientY - b.top) * H / b.height]; };
+  return {cv, x: cv.getContext("2d"), score: v => { sc.textContent = v; }, pos};
+};
+const raf = fn => { let id, on = true, last = performance.now(); const f = t => { if (!on) return; fn(Math.min(.05, (t - last) / 1000)); last = t; id = requestAnimationFrame(f); }; id = requestAnimationFrame(f); return {stop() { on = false; cancelAnimationFrame(id); }}; };
+const msg = (x, t, W, H) => { x.fillStyle = "#fff"; x.font = "bold 20px sans-serif"; x.textAlign = "center"; x.fillText(t, W / 2, H / 2); };
+
+const breakout = {id: "tijolos", name: "Quebra-Tijolos", emoji: "🧱", desc: "Parte todos os tijolos.", min: 1, max: 1,
+  run(el) {
+    const c = mkCanvas(el, 320, 420, "Mexe o rato ou o dedo para controlar a raquete. Toca para recomeçar."), x = c.x;
+    let px, bx, by, vx, vy, bricks, pts, state;
+    const reset = () => { px = 130; bx = 160; by = 340; vx = 120; vy = -200; pts = 0; state = 0; bricks = []; for (let r = 0; r < 5; r++) for (let k = 0; k < 8; k++) bricks.push({x: k * 40, y: 30 + r * 18, a: true, r}); c.score(0); };
+    const mv = e => { px = Math.max(0, Math.min(260, c.pos(e)[0] - 30)); if (e.cancelable) e.preventDefault(); };
+    c.cv.onmousemove = mv; c.cv.ontouchmove = mv; c.cv.ontouchstart = mv; c.cv.onclick = () => { if (state) reset(); };
+    reset();
+    return raf(dt => {
+      if (!state) {
+        bx += vx * dt; by += vy * dt;
+        if (bx < 6 || bx > 314) { vx = -vx; bx = Math.max(6, Math.min(314, bx)); }
+        if (by < 6) vy = Math.abs(vy);
+        if (vy > 0 && by > 394 && by < 410 && bx > px - 4 && bx < px + 64) { vy = -Math.abs(vy); vx = Math.max(-260, Math.min(260, vx + (bx - px - 30) * 4)); }
+        if (by > 430) state = 1;
+        for (const b of bricks) if (b.a && bx > b.x - 4 && bx < b.x + 44 && by > b.y - 4 && by < b.y + 20) { b.a = false; vy = -vy; pts++; c.score(pts); break; }
+        if (bricks.every(b => !b.a)) state = 2;
+      }
+      x.clearRect(0, 0, 320, 420);
+      bricks.forEach(b => { if (b.a) { x.fillStyle = `hsl(${b.r * 50},70%,60%)`; x.fillRect(b.x + 1, b.y, 38, 16); } });
+      x.fillStyle = "#fff"; x.fillRect(px, 400, 60, 10); x.beginPath(); x.arc(bx, by, 6, 0, 7); x.fill();
+      if (state) msg(x, state === 2 ? "🎉 Ganhaste! Toca para repetir" : "Fim! Toca para recomeçar", 320, 420);
+    });
+  }};
+
+const pong = {id: "pong", name: "Pong", emoji: "🏓", desc: "Contra o computador. Primeiro a 7.", min: 1, max: 1,
+  run(el) {
+    const c = mkCanvas(el, 400, 260, "Arrasta para mexer a tua raquete (à esquerda). Toca para recomeçar."), x = c.x;
+    let py, ay, bx, by, vx, vy, a, b, over;
+    const serve = d => { bx = 200; by = 130; vx = 190 * d; vy = (Math.random() - .5) * 200; };
+    const reset = () => { py = ay = 105; a = b = 0; over = false; serve(1); c.score("0 - 0"); };
+    const mv = e => { py = Math.max(0, Math.min(210, c.pos(e)[1] - 25)); if (e.cancelable) e.preventDefault(); };
+    c.cv.onmousemove = mv; c.cv.ontouchmove = mv; c.cv.ontouchstart = mv; c.cv.onclick = () => { if (over) reset(); };
+    reset();
+    return raf(dt => {
+      if (!over) {
+        bx += vx * dt; by += vy * dt;
+        if (by < 6 || by > 254) { vy = -vy; by = Math.max(6, Math.min(254, by)); }
+        ay += Math.max(-130 * dt, Math.min(130 * dt, by - 25 - ay)); ay = Math.max(0, Math.min(210, ay));
+        if (vx < 0 && bx < 22 && bx > 6 && by > py - 4 && by < py + 54) { vx = Math.min(420, -vx * 1.06); vy += (by - py - 25) * 5; }
+        if (vx > 0 && bx > 378 && bx < 394 && by > ay - 4 && by < ay + 54) { vx = -vx * 1.03; vy += (by - ay - 25) * 4; }
+        if (bx < 0) { b++; serve(1); } else if (bx > 400) { a++; serve(-1); }
+        c.score(a + " - " + b); if (a >= 7 || b >= 7) over = true;
+      }
+      x.clearRect(0, 0, 400, 260); x.fillStyle = "#fff"; x.fillRect(8, py, 8, 50); x.fillRect(384, ay, 8, 50);
+      x.beginPath(); x.arc(bx, by, 6, 0, 7); x.fill();
+      if (over) msg(x, a > b ? "🎉 Ganhaste! Toca para repetir" : "Perdeste! Toca para repetir", 400, 260);
+    });
+  }};
+
+const apanha = {id: "prendas", name: "Apanha as Prendas", emoji: "🎁", desc: "Apanha prendas e foge do carvão.", min: 1, max: 1,
+  run(el) {
+    const c = mkCanvas(el, 320, 420, "Arrasta para mexer o cesto. Tens 3 vidas (o carvão tira vidas)."), x = c.x;
+    let bx, it, pts, lives, t, over;
+    const upd = () => c.score(pts + " · ❤️ " + lives);
+    const reset = () => { bx = 160; it = []; pts = 0; lives = 3; t = 0; over = false; upd(); };
+    const mv = e => { bx = Math.max(24, Math.min(296, c.pos(e)[0])); if (e.cancelable) e.preventDefault(); };
+    c.cv.onmousemove = mv; c.cv.ontouchmove = mv; c.cv.ontouchstart = mv; c.cv.onclick = () => { if (over) reset(); };
+    reset();
+    return raf(dt => {
+      if (!over) {
+        t += dt; if (Math.random() < dt * (1.4 + t / 40)) it.push({x: 20 + R(280), y: -10, bad: R(4) === 0, v: 90 + R(60) + t * 2});
+        it.forEach(o => { o.y += o.v * dt; });
+        it = it.filter(o => { if (o.y > 392 && o.y < 420 && Math.abs(o.x - bx) < 34) { if (o.bad) lives--; else pts++; upd(); return false; } return o.y < 430; });
+        if (lives <= 0) over = true;
+      }
+      x.clearRect(0, 0, 320, 420); x.font = "28px sans-serif"; x.textAlign = "center";
+      it.forEach(o => x.fillText(o.bad ? "⚫" : "🎁", o.x, o.y)); x.fillText("🧺", bx, 412);
+      if (over) msg(x, "Fim! Toca para recomeçar", 320, 420);
+    });
+  }};
+
+const runner = {id: "rena", name: "Salto da Rena", emoji: "🦌", desc: "Salta os pinheiros o máximo que puderes.", min: 1, max: 1,
+  run(el) {
+    const c = mkCanvas(el, 400, 200, "Toca no ecrã, ou carrega no espaço / seta para cima, para saltar."), x = c.x;
+    let y, vy, obs, t, over;
+    const reset = () => { y = 150; vy = 0; obs = []; t = 0; over = false; c.score(0); };
+    const jump = () => { if (over) return reset(); if (y >= 150) vy = -430; };
+    const key = e => { if (e.code === "Space" || e.key === "ArrowUp") { e.preventDefault(); jump(); } };
+    document.addEventListener("keydown", key); c.cv.onpointerdown = jump;
+    reset();
+    const loop = raf(dt => {
+      if (!over) {
+        t += dt; const sp = 220 + t * 6; c.score(Math.floor(t * 10));
+        vy += 1100 * dt; y = Math.min(150, y + vy * dt); if (y >= 150) vy = 0;
+        if (!obs.length || obs[obs.length - 1].x < 220 - R(100)) obs.push({x: 420});
+        obs.forEach(o => { o.x -= sp * dt; }); obs = obs.filter(o => o.x > -30);
+        if (obs.some(o => o.x > 14 && o.x < 66 && y > 122)) over = true;
+      }
+      x.clearRect(0, 0, 400, 200); x.fillStyle = "#4a6a8a"; x.fillRect(0, 183, 400, 3);
+      x.font = "32px sans-serif"; x.textAlign = "left"; x.fillText("🦌", 20, y + 30); obs.forEach(o => x.fillText("🎄", o.x - 15, 182));
+      if (over) msg(x, "Fim! Toca para recomeçar", 400, 200);
+    });
+    return {stop() { loop.stop(); document.removeEventListener("keydown", key); }};
+  }};
+
+const simon = {id: "simon", name: "Simon", emoji: "🎵", desc: "Repete a sequência de cores.", min: 1, max: 1,
+  run(el) {
+    el.innerHTML = '<p class="gs" id="sm">Memoriza a sequência. Toca em «Começar».</p><div class="gg" style="grid-template-columns:repeat(2,1fr);max-width:260px">' +
+      ["#e63946", "#2a9d8f", "#f4a261", "#4895ef"].map((col, i) => `<button class="gb" data-k="${i}" style="background:${col};opacity:.55"></button>`).join("") +
+      '</div><p class="gs"><button class="gb wide" id="sgo">Começar</button></p>';
+    const bs = [...el.querySelectorAll("[data-k]")], say = el.querySelector("#sm");
+    let seq = [], pos = 0, input = false, tm = [];
+    const flash = (i, ms = 350) => { bs[i].style.opacity = 1; tm.push(setTimeout(() => { bs[i].style.opacity = .55; }, ms)); };
+    const play = () => { input = false; pos = 0; say.textContent = "Olha com atenção…"; seq.forEach((k, j) => tm.push(setTimeout(() => flash(k), 600 + j * 650))); tm.push(setTimeout(() => { input = true; say.textContent = "A tua vez!"; }, 600 + seq.length * 650)); };
+    const next = () => { seq.push(R(4)); play(); };
+    bs.forEach(b => { b.onclick = () => {
+      if (!input) return; const k = +b.dataset.k; flash(k, 200);
+      if (k !== seq[pos]) { input = false; say.textContent = `Falhaste! Chegaste à ronda ${seq.length}. Toca em Começar.`; seq = []; return; }
+      if (++pos === seq.length) { input = false; say.textContent = "Muito bem!"; tm.push(setTimeout(next, 700)); }
+    }; });
+    el.querySelector("#sgo").onclick = () => { tm.forEach(clearTimeout); tm = []; seq = []; next(); };
+    return {stop() { tm.forEach(clearTimeout); }};
+  }};
+
+const toupeira = {id: "toupeira", name: "Caça à Toupeira", emoji: "🐹", desc: "Apanha o máximo em 30 segundos.", min: 1, max: 1,
+  run(el) {
+    el.innerHTML = '<p class="gs">Pontos: <b id="tp">0</b> · Tempo: <b id="tt">30</b></p><div class="gg" style="grid-template-columns:repeat(3,1fr);max-width:300px">' +
+      Array.from({length: 9}, (_, i) => `<button class="gb" data-h="${i}"></button>`).join("") + '</div><p class="gs"><button class="gb wide" id="tgo">Começar</button></p>';
+    const hs = [...el.querySelectorAll("[data-h]")], P = el.querySelector("#tp"), T = el.querySelector("#tt");
+    let pts = 0, left = 0, up = -1, iv, mv;
+    const show = () => { hs.forEach(b => { b.textContent = ""; }); up = R(9); hs[up].textContent = "🐹"; };
+    hs.forEach((b, i) => { b.onclick = () => { if (left > 0 && i === up) { pts++; P.textContent = pts; show(); } }; });
+    el.querySelector("#tgo").onclick = () => {
+      clearInterval(iv); clearInterval(mv); pts = 0; left = 30; P.textContent = 0; T.textContent = 30; show();
+      mv = setInterval(show, 800);
+      iv = setInterval(() => { left--; T.textContent = left; if (left <= 0) { clearInterval(iv); clearInterval(mv); hs.forEach(b => { b.textContent = ""; }); up = -1; } }, 1000);
+    };
+    return {stop() { clearInterval(iv); clearInterval(mv); }};
+  }};
+
+const hanoi = {id: "hanoi", name: "Torre de Hanói", emoji: "🗼", desc: "Muda os discos para a última torre.", min: 1, max: 1,
+  init: () => ({t: [[4, 3, 2, 1], [], []], sel: null, mv: 0, win: null}),
+  move(s, m) {
+    const k = +m; if (s.win != null || !(k >= 0 && k <= 2)) return null; const n = cl(s);
+    if (s.sel == null) { if (!s.t[k].length) return null; n.sel = k; return n; }
+    if (k === s.sel) { n.sel = null; return n; }
+    const d = s.t[s.sel][s.t[s.sel].length - 1], top = s.t[k][s.t[k].length - 1];
+    if (top !== undefined && top < d) return null;
+    n.t[k].push(n.t[s.sel].pop()); n.sel = null; n.mv++; if (n.t[2].length === 4) n.win = 0; return n;
+  },
+  html: s => bar(s.win != null ? `🎉 Resolvido em ${s.mv} jogadas!` : `Jogadas: ${s.mv} · ${s.sel == null ? "escolhe uma torre" : "escolhe o destino"}`) +
+    row([0, 1, 2].map(k => `<div style="flex:1;max-width:120px;text-align:center">${btn(k, "Torre " + (k + 1), "wide" + (s.sel === k ? " sel" : ""), s.win != null)}<div style="display:flex;flex-direction:column-reverse;align-items:center;min-height:110px;margin-top:6px">${s.t[k].map(d => `<div style="height:20px;width:${d * 22 + 12}px;background:hsl(${d * 60},65%,55%);border-radius:5px;margin-top:2px"></div>`).join("")}</div></div>`).join(""))
+};
+
+const COL6 = ["#e63946", "#f4a261", "#2a9d8f", "#4895ef", "#9b5de5", "#ffd166"];
+const inunda = {id: "inunda", name: "Inundação", emoji: "🌊", desc: "Pinta tudo da mesma cor em 22 jogadas.", min: 1, max: 1,
+  init: () => ({b: Array.from({length: 100}, () => R(6)), mv: 0, win: null}),
+  move(s, m) {
+    const c = +m; if (s.win != null || !(c >= 0 && c < 6) || c === s.b[0]) return null;
+    const n = cl(s), old = s.b[0], q = [0], seen = new Set([0]);
+    while (q.length) {
+      const x = q.pop(); n.b[x] = c; const r = (x / 10) | 0, k = x % 10;
+      for (const y of [k > 0 && x - 1, k < 9 && x + 1, r > 0 && x - 10, r < 9 && x + 10]) if (y !== false && !seen.has(y) && s.b[y] === old) { seen.add(y); q.push(y); }
+    }
+    n.mv++; if (n.b.every(v => v === c)) n.win = 0; else if (n.mv >= 22) n.win = -1; return n;
+  },
+  html: s => bar(s.win === 0 ? `🎉 Conseguiste em ${s.mv} jogadas!` : s.win === -1 ? "💀 Ficaste sem jogadas." : `Jogadas: ${s.mv}/22`) +
+    grid(10, s.b.map(v => `<div class="gc" style="background:${COL6[v]}"></div>`)) + row(COL6.map((col, k) => btn(k, "&nbsp;", "wide", s.win != null || k === s.b[0], `style="background:${col};min-width:44px"`)).join(""))
+};
+
+const mat = {id: "matematica", name: "Matemática Rápida", emoji: "➕", desc: "10 contas de cabeça.", min: 1, max: 1,
+  init: () => ({q: Array.from({length: 10}, () => [R(11) + 2, R(10) + 2, ["+", "-", "×"][R(3)]]), i: 0, sc: 0, hint: "", win: null}),
+  move(s, m) {
+    if (s.win != null) return null; const v = String(m).split(":")[1]; if (v == null || v === "" || isNaN(+v)) return null;
+    const [a, b, o] = s.q[s.i], r = o === "+" ? a + b : o === "-" ? a - b : a * b, n = cl(s);
+    if (+v === r) { n.sc++; n.hint = "✅ Certo!"; } else n.hint = `❌ Era ${r}`;
+    n.i++; if (n.i >= 10) n.win = 0; return n;
+  },
+  html: s => s.win != null ? bar(`🎉 Acertaste ${s.sc} de 10!`) : bar(`Conta ${s.i + 1}/10 · ${s.sc} certas`) + bar(s.hint) +
+    `<p class="gs" style="font-size:2rem">${s.q[s.i][0]} ${s.q[s.i][2]} ${s.q[s.i][1]} = ?</p>` + row(`<input id="gin" type="number" style="max-width:120px">` + btn("a", "OK", "wide", false, 'data-inp="gin"'))
+};
+
+// ---- Pontos e Caixas (2 online) ----
+const caixas = {id: "caixas", name: "Pontos e Caixas", emoji: "🔲", desc: "Fecha caixas e joga outra vez.", min: 2, max: 2,
+  init: () => ({h: Array(20).fill(-1), v: Array(20).fill(-1), o: Array(16).fill(-1), turn: 0, sc: [0, 0], win: null}),
+  move(s, m, i) {
+    if (s.win != null || s.turn !== i) return null; const [t, r, c] = String(m).split(","), rr = +r, cc = +c, n = cl(s);
+    if (t === "h") { if (!(rr >= 0 && rr <= 4 && cc >= 0 && cc <= 3) || s.h[rr * 4 + cc] >= 0) return null; n.h[rr * 4 + cc] = i; }
+    else if (t === "v") { if (!(rr >= 0 && rr <= 3 && cc >= 0 && cc <= 4) || s.v[rr * 5 + cc] >= 0) return null; n.v[rr * 5 + cc] = i; }
+    else return null;
+    let got = 0;
+    for (let br = 0; br < 4; br++) for (let bc = 0; bc < 4; bc++)
+      if (n.o[br * 4 + bc] < 0 && n.h[br * 4 + bc] >= 0 && n.h[(br + 1) * 4 + bc] >= 0 && n.v[br * 5 + bc] >= 0 && n.v[br * 5 + bc + 1] >= 0) { n.o[br * 4 + bc] = i; n.sc[i]++; got++; }
+    if (n.o.every(v => v >= 0)) n.win = n.sc[0] === n.sc[1] ? -1 : n.sc[0] > n.sc[1] ? 0 : 1; else if (!got) n.turn = 1 - i;
+    return n;
+  },
+  html: (s, i, names) => { const cells = [];
+    for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) {
+      if (y % 2 === 0 && x % 2 === 0) cells.push('<div class="dt"></div>');
+      else if (y % 2 === 0) { const r = y / 2, c = (x - 1) / 2, v = s.h[r * 4 + c]; cells.push(btn(`h,${r},${c}`, "", "eg" + (v >= 0 ? " on" + v : ""), s.win != null || v >= 0 || s.turn !== i)); }
+      else if (x % 2 === 0) { const r = (y - 1) / 2, c = x / 2, v = s.v[r * 5 + c]; cells.push(btn(`v,${r},${c}`, "", "eg" + (v >= 0 ? " on" + v : ""), s.win != null || v >= 0 || s.turn !== i)); }
+      else { const o = s.o[((y - 1) / 2) * 4 + (x - 1) / 2]; cells.push(`<div class="bx">${o >= 0 ? PC4[o] : ""}</div>`); }
+    }
+    return bar(st(s, i, names)) + bar(`${PC4[0]} ${esc(names[0])}: ${s.sc[0]} · ${PC4[1]} ${esc(names[1])}: ${s.sc[1]}`) +
+      `<div class="gg db" style="grid-template-columns:repeat(4,14px 1fr) 14px;grid-template-rows:repeat(4,14px 1fr) 14px">${cells.join("")}</div>`; }
+};
+
+// ---- Quiz em Família (2–4 online) ----
+const quizfam = {id: "quizfam", name: "Quiz em Família", emoji: "🎤", desc: "Perguntas à vez (2–4 jogadores).", min: 2, max: 4,
+  init: n => ({o: sh(QS.map((_, i) => i)).slice(0, 8), i: 0, turn: 0, sc: Array(n).fill(0), a: null, n, win: null}),
+  move(s, m, i) {
+    if (s.win != null || s.turn !== i) return null; const n = cl(s);
+    if (m === "n") {
+      if (s.a == null) return null; n.a = null; n.i++;
+      if (n.i >= n.o.length) { const mx = Math.max(...n.sc); n.win = n.sc.filter(v => v === mx).length > 1 ? -1 : n.sc.indexOf(mx); } else n.turn = (i + 1) % s.n;
+      return n;
+    }
+    const k = +m; if (s.a != null || !(k >= 0 && k < 4)) return null; n.a = k; if (k === QS[s.o[s.i]][2]) n.sc[i]++; return n;
+  },
+  html: (s, i, names) => { const tab = bar(s.sc.map((v, k) => `${esc(names[k])}: ${v}`).join(" · "));
+    if (s.win != null) return bar(st(s, i, names)) + tab; const q = QS[s.o[s.i]];
+    return bar(`Pergunta ${s.i + 1}/${s.o.length} · Vez de ${esc(names[s.turn])}`) + bar(esc(q[0])) +
+      q[1].map((t, k) => `<p>${btn(k, (s.a != null ? (k === q[2] ? "✅ " : k === s.a ? "❌ " : "") : "") + esc(t), "wide full", s.a != null || s.turn !== i)}</p>`).join("") +
+      (s.a != null && s.turn === i ? row(btn("n", "Seguinte →", "wide")) : "") + tab; }
+};
+
+// ---- Damas (2 online) ----
+const dirs = v => v >= 2 ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] : v % 2 === 0 ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]];
+const legal = (b, p, mid) => {
+  const caps = [], simp = [];
+  for (let x = 0; x < 64; x++) {
+    const v = b[x]; if (v < 0 || v % 2 !== p || (mid != null && x !== mid)) continue;
+    const r = x >> 3, c = x & 7;
+    for (const [dr, dc] of dirs(v)) {
+      const r1 = r + dr, c1 = c + dc, r2 = r + 2 * dr, c2 = c + 2 * dc;
+      if (r1 < 0 || r1 > 7 || c1 < 0 || c1 > 7) continue;
+      const m = b[r1 * 8 + c1];
+      if (m < 0) { if (mid == null) simp.push([x, r1 * 8 + c1]); }
+      else if (m % 2 !== p && r2 >= 0 && r2 < 8 && c2 >= 0 && c2 < 8 && b[r2 * 8 + c2] < 0) caps.push([x, r2 * 8 + c2]);
+    }
+  }
+  return caps.length ? {caps: true, list: caps} : {caps: false, list: simp};
+};
+const damas = {id: "damas", name: "Damas", emoji: "🔴", desc: "Captura é obrigatória. Chega ao fundo para coroar.", min: 2, max: 2,
+  init: () => { const b = Array(64).fill(-1); for (let x = 0; x < 64; x++) { const r = x >> 3, c = x & 7; if ((r + c) % 2 === 1) { if (r < 3) b[x] = 1; else if (r > 4) b[x] = 0; } } return {b, turn: 0, sel: null, mid: null, win: null}; },
+  move(s, m, i) {
+    if (s.win != null || s.turn !== i) return null;
+    const t = String(m)[0], x = +String(m).slice(1); if (!(x >= 0 && x < 64)) return null;
+    const L = legal(s.b, i, s.mid), n = cl(s);
+    if (t === "s") { if (!L.list.some(([a]) => a === x)) return null; n.sel = x; return n; }
+    if (t !== "t" || s.sel == null || !L.list.some(([a, b]) => a === s.sel && b === x)) return null;
+    const v = n.b[s.sel]; n.b[s.sel] = -1; n.b[x] = v; let promoted = false;
+    if (L.caps) n.b[(s.sel + x) / 2] = -1;
+    if (v < 2 && ((i === 0 && x < 8) || (i === 1 && x >= 56))) { n.b[x] = v + 2; promoted = true; }
+    n.sel = null; n.mid = null;
+    if (L.caps && !promoted && legal(n.b, i, x).caps) { n.mid = x; n.sel = x; return n; }
+    n.turn = 1 - i; if (!legal(n.b, 1 - i, null).list.length) n.win = i;
+    return n;
+  },
+  html: (s, i, names) => {
+    const L = s.turn === i && s.win == null ? legal(s.b, i, s.mid) : {list: []}, order = [...Array(64).keys()]; if (i === 1) order.reverse();
+    const cells = order.map(x => {
+      const r = x >> 3, c = x & 7, v = s.b[x]; if ((r + c) % 2 === 0) return '<div class="gc light"></div>';
+      const tgt = s.sel != null && L.list.some(([a, b]) => a === s.sel && b === x), src = L.list.some(([a]) => a === x);
+      return btn(tgt ? "t" + x : "s" + x, v < 0 ? (tgt ? "·" : "") : (v >= 2 ? ["🟥", "🟦"] : ["🔴", "🔵"])[v % 2], s.sel === x ? "sel" : "", !(tgt || src));
+    });
+    return bar(st(s, i, names)) + bar("🔴/🔵 peças · 🟥/🟦 damas") + grid(8, cells, "ck");
+  }
+};
+
 export const GAMES = [
   mnk("galo", "Jogo do Galo", "❌", "Três em linha.", 3, 3, 3, false, ["❌", "⭕"]),
   mnk("quatro", "Quatro em Linha", "🔴", "Deixa cair as peças.", 7, 6, 4, true, ["🔴", "🟡"]),
   mnk("cinco", "Cinco em Linha", "⚫", "Gomoku num tabuleiro 15×15.", 15, 15, 5, false, ["⚫", "⚪"]),
-  reversi, nim, ppt, pig, memoria, cobras, adivinha, forca, mancala, corrida,
-  snake, g2048, minas, quiz, puzzle, luzes, blackjack
+  reversi, damas, nim, ppt, pig, memoria, cobras, adivinha, forca, mancala, corrida, caixas, quizfam,
+  snake, breakout, pong, apanha, runner, simon, toupeira, g2048, minas, quiz, puzzle, luzes, blackjack, hanoi, inunda, mat
 ];
