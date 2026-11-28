@@ -71,6 +71,11 @@ body.guest #tabs button:not([data-tab=chat]),body.guest #evsw,body.guest #btnNew
 .gc{display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1;font-size:.62rem;background:#eef1ee;border-radius:4px;text-align:center;line-height:1.1}
 .gc.t{font-size:1.2rem;font-weight:700}.gc.open{background:#dde3dd;font-weight:700;font-size:.9rem}
 .gg.rv .gb{background:#2e7d4f;color:#fff}
+.gb.sel{outline:3px solid var(--gold)}
+.gg.ck{gap:0;max-width:420px}.gg.ck .gb{background:#8b5a2b;border-radius:0;font-size:1.1rem}.gg.ck .gb:disabled{opacity:1}.gg.ck .gc.light{background:#f1e4c8;border-radius:0}
+.gg.db{gap:0;max-width:340px}.gg.db .gb,.gg.db .gc{aspect-ratio:auto}.gg.db .dt{background:var(--ink);border-radius:50%}
+.gg.db .eg{background:#d9dfd9;border:0;border-radius:4px;padding:0}.gg.db .eg:disabled{opacity:1}.gg.db .eg.on0{background:#e63946}.gg.db .eg.on1{background:#4361ee}
+.gg.db .bx{display:flex;align-items:center;justify-content:center;font-size:1.3rem;min-height:44px}
 .nr{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
 .gs{font-weight:700;text-align:center;margin:8px 0}
 .rooms{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
@@ -102,7 +107,7 @@ body{--pine2:color-mix(in srgb,var(--pine) 80%,#fff)}
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>🎄 Festas em Família</h1>
+    <h1 id="siteTitle">🎄 Festas em Família</h1>
     <div class="who" id="who" hidden>
       <img id="avatar" alt="">
       <span id="uname"></span><span class="badge" id="adminBadge" hidden>Admin</span>
@@ -241,6 +246,10 @@ body{--pine2:color-mix(in srgb,var(--pine) 80%,#fff)}
 
     <section class="card" data-sec="admin" hidden>
       <h2>Administração</h2>
+      <h3>Aspeto do site</h3>
+      <div class="row"><div style="flex:0 0 90px"><label for="sEmoji">Ícone</label><input id="sEmoji" maxlength="4" placeholder="🎄"></div><div><label for="sName">Nome no topo</label><input id="sName" maxlength="40" placeholder="Festas em Família"></div></div>
+      <p><button class="btn" id="btnSite" type="button">Guardar aspeto</button></p>
+
       <h3>Festividades</h3>
       <p class="hint">Cria, edita ou apaga festividades. Sem nenhuma, o site fica só com o chat.</p>
       <div class="row" id="evPresets" style="margin-bottom:8px"><button class="btn small" data-add="natal" type="button">+ Natal</button><button class="btn small" data-add="ano" type="button">+ Ano Novo</button><button class="btn small" data-add="novo" type="button">+ Outra</button></div>
@@ -343,13 +352,12 @@ onAuthStateChanged(auth, async u => {
   $("avatar").src = u.photoURL || ""; $("uname").textContent = u.displayName || u.email; $("uname").title = u.email;
   try { isAdmin = (await getDoc(doc(db, "admins", u.email.toLowerCase()))).exists(); } catch (e) { isAdmin = false; console.error(e); toast("Erro ao verificar administrador: " + (e.code || e.message)); }
   $("adminBadge").hidden = !isAdmin; $("tabAdmin").hidden = !isAdmin;
-  let ok = isAdmin;
-  if (!ok) { try { ok = (await getDoc(doc(db, "members", u.email.toLowerCase()))).exists(); } catch (e) { ok = false; console.error(e); } }
-  let guest = false;
+  let guest = false, ok = isAdmin;
   if (!ok) { try { guest = (await getDoc(doc(db, "guests", u.email.toLowerCase()))).exists(); } catch (e) { console.error(e); } }
+  if (!ok && !guest) { try { ok = (await getDoc(doc(db, "members", u.email.toLowerCase()))).exists(); } catch (e) { ok = false; console.error(e); } }
   let fake = false;
   if (!ok && !guest) { try { fake = (await getDoc(doc(db, "fakes", u.email.toLowerCase()))).exists(); } catch (e) { console.error(e); } }
-  $("btnOut").hidden = fake; $("adminBadge").hidden = !(isAdmin || fake);
+  $("btnOut").hidden = fake; $("adminBadge").hidden = !(isAdmin || fake || guest); $("adminBadge").textContent = guest ? "Convidado" : "Admin";
   $("deniedMail").textContent = u.email; $("denied").hidden = ok || guest || fake; $("app").hidden = !(ok || guest); $("fake").hidden = !fake;
   if (fake) { startFake(); return; }
   if (!ok && !guest) return;
@@ -512,7 +520,7 @@ const unreadDm = id => { const d = dms[id]; return d && d.lastFrom !== myMail() 
 function updateBadges() {
   const n = unreadGroup() + Object.keys(dms).reduce((a, k) => a + unreadDm(k), 0);
   $("chatDot").hidden = !n; $("chatDot").textContent = n;
-  document.title = (n ? `(${n}) ` : "") + "Festas em Família";
+  document.title = (n ? `(${n}) ` : "") + siteName;
 }
 
 function notify(title, body, tag) {
@@ -594,6 +602,7 @@ function renderChat() {
 }
 
 function openRoom(id) {
+  if (isGuest && id === "geral") return;
   dmSub?.(); dmSub = null; room = id; dmMsgs = null;
   if (id !== "geral") dmSub = onSnapshot(query(collection(db, "dmRooms", id, "messages"), orderBy("createdAt", "desc"), limit(50)),
     s => { dmMsgs = snap(s).reverse(); renderChat(); }, e => { console.error(e); toast("Erro: " + (e.code || "")); });
@@ -752,6 +761,7 @@ function startGame(cv, onScore) {
 }
 
 function watchRooms(watch) {
+  watch(doc(db, "config", "site"), s => applySite(s.exists() ? s.data() : null));
   watch(query(collection(db, "dmRooms"), where("members", "array-contains", myMail())), s => {
     s.docs.forEach(d => dms[d.id] = d.data({serverTimestamps: "estimate"}));
     if (primed.d) s.docChanges().forEach(c => {
@@ -909,6 +919,19 @@ $("btnNews").onclick = () => {
   if (!title) return toast("Escreve um título.");
   run(async () => { await addDoc(collection(db, "news"), {title, text, image: nImg, author: myName(), createdAt: serverTimestamp()}); $("nTitle").value = ""; $("nText").value = ""; nImg = ""; $("nImgSt").textContent = ""; }, "Notícia publicada");
 };
+
+// ---------- Aspeto do site ----------
+let siteName = "Festas em Família";
+function applySite(d) {
+  siteName = (d?.name || "Festas em Família").slice(0, 40);
+  const em = [...(d?.emoji || "🎄")].slice(0, 2).join("");
+  $("siteTitle").textContent = em + " " + siteName; document.title = siteName;
+  $("sName").value = d?.name || ""; $("sEmoji").value = d?.emoji || "";
+  const ic = document.querySelector("link[rel=icon]");
+  if (ic) ic.href = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${esc(em)}</text></svg>`);
+}
+getDoc(doc(db, "config", "site")).then(s => applySite(s.exists() ? s.data() : null)).catch(() => {});
+$("btnSite").onclick = () => run(() => setDoc(doc(db, "config", "site"), {name: $("sName").value.trim().slice(0, 40), emoji: [...$("sEmoji").value.trim()].slice(0, 2).join("")}), "Aspeto guardado");
 
 // ---------- Ações ----------
 const run = async (fn, ok) => { try { await fn(); toast(ok); } catch (e) { console.error(e); toast("Erro: " + (e.code || "ligação")); } };
