@@ -59,6 +59,20 @@ textarea{min-height:110px;resize:vertical}
 .login .btn{background:var(--snow);color:var(--pine);font-size:1.05rem;padding:12px 22px}
 .warn{background:#fff3cd;color:#664d03;border-radius:10px;padding:12px 14px;margin-bottom:14px}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--snow);color:var(--ink);padding:10px 18px;border-radius:10px;box-shadow:0 6px 24px #0006;z-index:9}
+body.guest #tabs button:not([data-tab=chat]),body.guest #evsw,body.guest #btnNewGroup{display:none}
+.post{border-bottom:1px solid var(--line);padding:12px 0}.post:last-child{border:0}.post h3{margin:0 0 2px}.post small{color:var(--mute)}
+.pimg{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:10px;margin:8px 0}.nw a{color:var(--ink)}
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.gcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}.gcard small{display:block;color:var(--mute);margin:2px 0 8px;font-size:.8rem}
+.gg{display:grid;gap:3px;max-width:min(100%,520px);margin:8px auto}
+.gb{font:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;padding:0;font-size:1.3rem;color:var(--ink)}
+.gg .gb{aspect-ratio:1}.gb.sm{font-size:.65rem}.gb:disabled{opacity:.55;cursor:default}
+.gb.wide{aspect-ratio:auto;padding:10px 14px;font-size:1rem}.gb.sm2{aspect-ratio:auto;padding:6px 9px;font-size:.95rem}.gb.full{width:100%;text-align:left}.gb.blank{visibility:hidden}
+.gc{display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1;font-size:.62rem;background:#eef1ee;border-radius:4px;text-align:center;line-height:1.1}
+.gc.t{font-size:1.2rem;font-weight:700}.gc.open{background:#dde3dd;font-weight:700;font-size:.9rem}
+.gg.rv .gb{background:#2e7d4f;color:#fff}
+.nr{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
+.gs{font-weight:700;text-align:center;margin:8px 0}
 .rooms{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .rooms button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 12px;cursor:pointer}
 .rooms button[aria-pressed=true]{background:var(--pine);color:#fff;border-color:var(--pine)}
@@ -131,15 +145,24 @@ body{--pine2:color-mix(in srgb,var(--pine) 80%,#fff)}
   <main id="app" hidden>
     <div class="evsw" id="evsw"></div>
     <nav class="tabs" role="tablist" id="tabs">
-      <button role="tab" data-tab="convite" aria-selected="true">Convite</button>
+      <button role="tab" data-tab="noticias" aria-selected="true">Notícias</button>
+      <button role="tab" data-tab="convite" aria-selected="false">Convite</button>
       <button role="tab" data-tab="presenca" aria-selected="false">Presença</button>
       <button role="tab" data-tab="prendas" aria-selected="false" id="tabPrendas">Prendas</button>
       <button role="tab" data-tab="pratos" aria-selected="false">Pratos</button>
+      <button role="tab" data-tab="jogos" aria-selected="false">Jogos</button>
       <button role="tab" data-tab="chat" aria-selected="false">Chat<span class="dot" id="chatDot" hidden></span></button>
       <button role="tab" data-tab="admin" aria-selected="false" id="tabAdmin" hidden>Administração</button>
     </nav>
 
-    <section class="card" data-sec="convite">
+    <section class="card" data-sec="noticias">
+      <h2>📰 Novidades da família</h2>
+      <div id="nFam"></div>
+      <h2 style="margin-top:22px">🌍 Notícias do dia</h2>
+      <div id="nWorld" class="nw"><p class="hint">A carregar…</p></div>
+    </section>
+
+    <section class="card" data-sec="convite" hidden>
       <img id="evCover" alt="" hidden style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-bottom:12px">
       <h2 id="evTitle"></h2>
       <div class="hero-date" id="evDate"></div>
@@ -179,6 +202,20 @@ body{--pine2:color-mix(in srgb,var(--pine) 80%,#fff)}
         <button class="btn" id="btnDish" style="flex:0 0 auto">Adicionar</button>
       </div>
       <ul class="list" id="dList" style="margin-top:12px"></ul>
+    </section>
+
+    <section class="card" data-sec="jogos" hidden>
+      <h2>🎮 Jogos</h2>
+      <div id="gLobby">
+        <p class="hint" id="gCount"></p>
+        <div id="gCards" class="gcards"></div>
+        <h3>Salas online abertas</h3>
+        <ul class="list" id="gRooms"></ul>
+      </div>
+      <div id="gPlay" hidden>
+        <p><button class="btn ghost small" id="gBack" type="button">← Voltar aos jogos</button> <b id="gTitle"></b></p>
+        <div id="gArea"></div>
+      </div>
     </section>
 
     <section class="card" data-sec="chat" hidden>
@@ -226,6 +263,18 @@ body{--pine2:color-mix(in srgb,var(--pine) 80%,#fff)}
       <p><button class="btn" id="btnAddMember">Autorizar</button></p>
       <ul class="list" id="mList"></ul>
 
+      <h3>Convidados (só chats privados)</h3>
+      <p class="hint">Estes emails só veem as conversas privadas em que um membro falar com eles. Não veem notícias, festividades, jogos nem o chat de todos.</p>
+      <textarea id="guMail" style="min-height:60px" placeholder="convidado@gmail.com"></textarea>
+      <p><button class="btn" id="btnAddGuest" type="button">Adicionar convidado</button></p>
+      <ul class="list" id="guList"></ul>
+
+      <h3>Publicar notícia da família</h3>
+      <label for="nTitle">Título</label><input id="nTitle" maxlength="100">
+      <label for="nText">Texto</label><textarea id="nText" maxlength="1500"></textarea>
+      <label>Imagem (opcional): <span id="nImgSt"></span></label><input id="nImgFile" type="file" accept="image/*">
+      <p><button class="btn" id="btnNews" type="button">Publicar</button></p>
+
       <h3>Convidados de brincadeira 🎭</h3>
       <p class="hint">Estes emails veem um painel de administração falso (sem qualquer acesso a dados reais) e só terminam sessão depois de marcarem 67 pontos no Bubble Shooter.</p>
       <textarea id="fMail" style="min-height:60px" placeholder="amigo@gmail.com"></textarea>
@@ -245,7 +294,7 @@ body{--pine2:color-mix(in srgb,var(--pine) 80%,#fff)}
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {initializeAuth,indexedDBLocalPersistence,browserLocalPersistence,browserPopupRedirectResolver,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore,doc,getDoc,setDoc,deleteDoc,collection,addDoc,onSnapshot,serverTimestamp,query,orderBy,limit,where} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getFirestore,doc,getDoc,setDoc,deleteDoc,collection,addDoc,onSnapshot,serverTimestamp,query,orderBy,limit,where,updateDoc,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {getStorage, ref as sRef, uploadBytesResumable, getDownloadURL} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import {getMessaging, getToken} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
@@ -274,7 +323,7 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 navigator.storage?.persist?.();
 
-let user = null, isAdmin = false, unsubs = [], filled = {}, cur = null, evList = [], pendingSelect = null;
+let user = null, isAdmin = false, isGuest = false, unsubs = [], filled = {}, cur = null, evList = [], pendingSelect = null;
 let events = {}, data = {}, game = null;
 
 // ---------- Login ----------
@@ -288,7 +337,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 onAuthStateChanged(auth, async u => {
   game?.stop(); game = null; resetChat(); unsubs.forEach(f => f()); unsubs = []; filled = {};
   events = {natal:null, ano:null}; data = {rsvps:null, wishes:null, dishes:null, msgs:null};
-  user = u; isAdmin = false;
+  user = u; isAdmin = false; isGuest = false;
   $("boot").hidden = true; $("login").hidden = !!u; $("app").hidden = true; $("denied").hidden = true; $("fake").hidden = true; $("who").hidden = !u;
   if (!u) return;
   $("avatar").src = u.photoURL || ""; $("uname").textContent = u.displayName || u.email; $("uname").title = u.email;
@@ -296,12 +345,16 @@ onAuthStateChanged(auth, async u => {
   $("adminBadge").hidden = !isAdmin; $("tabAdmin").hidden = !isAdmin;
   let ok = isAdmin;
   if (!ok) { try { ok = (await getDoc(doc(db, "members", u.email.toLowerCase()))).exists(); } catch (e) { ok = false; console.error(e); } }
+  let guest = false;
+  if (!ok) { try { guest = (await getDoc(doc(db, "guests", u.email.toLowerCase()))).exists(); } catch (e) { console.error(e); } }
   let fake = false;
-  if (!ok) { try { fake = (await getDoc(doc(db, "fakes", u.email.toLowerCase()))).exists(); } catch (e) { console.error(e); } }
+  if (!ok && !guest) { try { fake = (await getDoc(doc(db, "fakes", u.email.toLowerCase()))).exists(); } catch (e) { console.error(e); } }
   $("btnOut").hidden = fake; $("adminBadge").hidden = !(isAdmin || fake);
-  $("deniedMail").textContent = u.email; $("denied").hidden = ok || fake; $("app").hidden = !ok; $("fake").hidden = !fake;
+  $("deniedMail").textContent = u.email; $("denied").hidden = ok || guest || fake; $("app").hidden = !(ok || guest); $("fake").hidden = !fake;
   if (fake) { startFake(); return; }
-  if (!ok) return;
+  if (!ok && !guest) return;
+  isGuest = guest; document.body.classList.toggle("guest", guest);
+  if (guest) { room = "none"; openTab("chat"); listenGuest(); return; }
   evList = []; cur = null; listen();
 });
 
@@ -310,6 +363,7 @@ function openTab(n) {
   document.querySelectorAll("#tabs button").forEach(x => x.setAttribute("aria-selected", x.dataset.tab === n));
   document.querySelectorAll("[data-sec]").forEach(s => s.hidden = s.dataset.sec !== n);
   if (n === "chat") { const b = $("chatBox"); b.scrollTop = b.scrollHeight; renderChat(); }
+  if (n === "jogos") showLobby(); else stopGame();
 }
 $("tabs").onclick = e => { const b = e.target.closest("button[data-tab]"); if (b) openTab(b.dataset.tab); };
 
@@ -321,7 +375,7 @@ function setEvent(id) {
   s.backgroundSize = "cover"; s.backgroundPosition = "center"; s.backgroundAttachment = "fixed";
   $("tabPrendas").hidden = !ev?.gifts;
   const sel = document.querySelector("#tabs [aria-selected=true]");
-  if (!sel || sel.hidden) openTab(evList.length ? "convite" : "chat");
+  if (!sel || sel.hidden) openTab("noticias");
   filled.r = false; showEvent(); renderRsvps(); renderDishes();
 }
 $("evsw").onclick = e => { const b = e.target.closest("button[data-ev]"); if (b) setEvent(b.dataset.ev); };
@@ -350,7 +404,7 @@ function listen() {
   watch(collection(db, "dishes"), s => { data.dishes = snap(s); renderDishes(); });
   notifBtn(); pushSetup();
   if (lsGet("lr:" + myMail() + ":geral") === null) lsSet("lr:" + myMail() + ":geral", Date.now());
-  setDoc(doc(db, "profiles", myMail()), {email: myMail(), name: user.displayName || user.email, photo: user.photoURL || "", uid: user.uid, seen: serverTimestamp()}, {merge: true}).catch(console.error);
+  setDoc(doc(db, "profiles", myMail()), {email: myMail(), name: user.displayName || user.email, photo: user.photoURL || "", uid: user.uid, guest: false, seen: serverTimestamp()}, {merge: true}).catch(console.error);
   watch(collection(db, "profiles"), s => { people = s.docs.map(d => d.data()).filter(x => x.email !== myMail()); renderRooms(); });
   watch(query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(50)), s => {
     groupMsgs = snap(s).reverse();
@@ -362,18 +416,15 @@ function listen() {
     if (room === "geral") renderChat();
     renderRooms(); updateBadges();
   });
-  watch(query(collection(db, "dmRooms"), where("members", "array-contains", myMail())), s => {
-    s.docs.forEach(d => dms[d.id] = d.data({serverTimestamps: "estimate"}));
-    if (primed.d) s.docChanges().forEach(c => {
-      const d = c.doc.data({serverTimestamps: "estimate"});
-      if (c.type !== "removed" && d.lastFrom !== myMail() && !c.doc.metadata.hasPendingWrites) notify(d.isGroup ? d.name : (d.lastName || "Mensagem privada"), (d.isGroup ? d.lastName + ": " : "") + (d.lastText || ""), c.doc.id);
-    });
-    primed.d = true; renderRooms(); updateBadges();
-  });
+  watchRooms(watch);
+  watch(query(collection(db, "news"), orderBy("createdAt", "desc"), limit(20)), s => { newsPosts = snap(s); renderNews(); });
+  watch(query(collection(db, "gameRooms"), orderBy("createdAt", "desc"), limit(30)), s => { gRoomsList = snap(s); renderGRooms(); });
+  loadWorld();
   if (isAdmin) {
     watch(collection(db, "admins"), s => showAdmins(s.docs.map(d => d.id)));
     watch(collection(db, "members"), s => showMembers(s.docs.map(d => d.id)));
     watch(collection(db, "fakes"), s => showFakes(s.docs.map(d => d.id)));
+    watch(collection(db, "guests"), s => showGuests(s.docs.map(d => d.id)));
   }
 }
 
@@ -454,7 +505,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const LR = r => +lsGet("lr:" + myMail() + ":" + r) || 0;
 const dmId = other => [myMail(), other].sort().join("__");
 const chatOpen = () => !document.hidden && document.querySelector("#tabs [aria-selected=true]").dataset.tab === "chat";
-function resetChat() { dmSub?.(); dmSub = null; room = "geral"; groupMsgs = null; dmMsgs = null; dms = {}; people = []; primed = {}; }
+function resetChat() { stopGame(); worldAt = 0; dmSub?.(); dmSub = null; room = "geral"; groupMsgs = null; dmMsgs = null; dms = {}; people = []; primed = {}; }
 
 const unreadGroup = () => (groupMsgs || []).filter(m => m.uid !== user.uid && ms(m) > LR("geral")).length;
 const unreadDm = id => { const d = dms[id]; return d && d.lastFrom !== myMail() && ms({createdAt: d.last}) > LR(id) ? 1 : 0; };
@@ -492,16 +543,21 @@ async function pushSetup() {
 }
 
 function renderRooms() {
-  const g = unreadGroup();
-  const list = [...people].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  const groups = Object.entries(dms).filter(([, d]) => d.isGroup).sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const g = unreadGroup(), nameOf = (e, d) => people.find(x => x.email === e)?.name || d?.names?.[e] || e;
+  const first = t => esc(String(t).split(" ")[0]);
   const btn = (id, label, badge) => `<button data-room="${esc(id)}" aria-pressed="${room === id}">${label}${badge ? `<span class="dot">${badge}</span>` : ""}</button>`;
-  $("rooms").innerHTML = btn("geral", "👨‍👩‍👧 Todos", g || "") +
+  const groups = Object.entries(dms).filter(([, d]) => d.isGroup).sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const items = isGuest
+    ? Object.entries(dms).filter(([, d]) => !d.isGroup).map(([id, d]) => [id, first(nameOf(d.members.find(m => m !== myMail()), d))])
+    : [...people].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(p => [dmId(p.email), first(p.name || p.email) + (p.guest ? " 🎫" : "")]);
+  $("rooms").innerHTML = (isGuest ? "" : btn("geral", "👨‍👩‍👧 Todos", g || "")) +
     groups.map(([id, d]) => btn(id, "👥 " + esc(d.name), unreadDm(id) ? "•" : "")).join("") +
-    list.map(p => { const id = dmId(p.email); return btn(id, esc((p.name || p.email).split(" ")[0]), unreadDm(id) ? "•" : ""); }).join("");
-  const d = dms[room], p = people.find(x => dmId(x.email) === room);
-  const who = m => m === myMail() ? "tu" : (people.find(x => x.email === m)?.name || m).split(" ")[0];
-  $("roomHint").textContent = room === "geral" ? "Conversa de todos." : d?.isGroup ? `Grupo «${d.name}» · ${d.members.map(who).join(", ")}` : "Conversa privada com " + (p ? p.name : "…") + ": só vocês dois a veem.";
+    items.map(([id, label]) => btn(id, label, unreadDm(id) ? "•" : "")).join("");
+  const d = dms[room], o = room.split("__").find(x => x !== myMail());
+  $("roomHint").textContent = room === "none" ? (Object.keys(dms).length ? "Escolhe uma conversa." : "Ainda não tens conversas. Quando um membro da família falar contigo, aparece aqui.")
+    : room === "geral" ? "Conversa de todos."
+    : d?.isGroup ? `Grupo «${d.name}» · ${d.members.map(m => m === myMail() ? "tu" : nameOf(m, d).split(" ")[0]).join(", ")}`
+    : "Conversa privada com " + nameOf(d ? d.members.find(m => m !== myMail()) : o, d) + ": só vocês dois a veem.";
 }
 
 $("btnNewGroup").onclick = () => {
@@ -578,7 +634,7 @@ $("cClear").onclick = clearPrev;
 
 async function send() {
   const btn = $("btnChat"), text = $("cText").value.trim(), image = pendingImg, video = pendingVideo;
-  if (btn.disabled || (!text && !image && !video)) return;
+  if (room === "none" || btn.disabled || (!text && !image && !video)) return;
   btn.disabled = true;
   try {
     const msg = {uid: user.uid, name: user.displayName || user.email, text, createdAt: serverTimestamp()};
@@ -592,7 +648,7 @@ async function send() {
     if (room === "geral") await addDoc(collection(db, "messages"), msg);
     else {
       const info = {last: serverTimestamp(), lastFrom: myMail(), lastName: msg.name, lastText: text ? text.slice(0, 80) : video ? "🎬 Vídeo" : "📷 Imagem"};
-      if (!room.startsWith("g_")) info.members = [myMail(), room.split("__").find(x => x !== myMail())].sort();
+      if (!room.startsWith("g_")) { info.members = [myMail(), room.split("__").find(x => x !== myMail())].sort(); info.names = {[myMail()]: msg.name}; }
       await setDoc(doc(db, "dmRooms", room), info, {merge: true});
       await addDoc(collection(db, "dmRooms", room, "messages"), msg);
     }
@@ -694,6 +750,165 @@ function startGame(cv, onScore) {
   fresh(); cur = rnd(); nxt = rnd(); raf = requestAnimationFrame(step);
   return {stop() { alive = false; cancelAnimationFrame(raf); }};
 }
+
+function watchRooms(watch) {
+  watch(query(collection(db, "dmRooms"), where("members", "array-contains", myMail())), s => {
+    s.docs.forEach(d => dms[d.id] = d.data({serverTimestamps: "estimate"}));
+    if (primed.d) s.docChanges().forEach(c => {
+      const d = c.doc.data({serverTimestamps: "estimate"});
+      if (c.type !== "removed" && d.lastFrom !== myMail() && !c.doc.metadata.hasPendingWrites) notify(d.isGroup ? d.name : (d.lastName || "Mensagem privada"), (d.isGroup ? d.lastName + ": " : "") + (d.lastText || ""), c.doc.id);
+    });
+    primed.d = true; renderRooms(); updateBadges();
+    if (isGuest && room === "none" && Object.keys(dms).length) openRoom(Object.keys(dms)[0]);
+  });
+}
+
+function listenGuest() {
+  const watch = (ref, fn) => unsubs.push(onSnapshot(ref, fn, e => console.error(e)));
+  notifBtn(); pushSetup();
+  setDoc(doc(db, "profiles", myMail()), {email: myMail(), name: user.displayName || user.email, photo: user.photoURL || "", uid: user.uid, guest: true, seen: serverTimestamp()}, {merge: true}).catch(console.error);
+  watchRooms(watch);
+}
+
+function showGuests(emails) {
+  $("guList").innerHTML = emails.length ? emails.sort().map(m => `<li><span>${esc(m)}</span><button class="btn del" data-del="guests" data-id="${esc(m)}">Remover</button></li>`).join("") : "<li>Nenhum convidado.</li>";
+}
+
+// ---------- Notícias ----------
+let newsPosts = [], worldAt = 0;
+const FEEDS = [["RTP", "https://www.rtp.pt/noticias/rss"], ["Público", "https://feeds.feedburner.com/PublicoRSS"]];
+function renderNews() {
+  $("nFam").innerHTML = newsPosts.length ? newsPosts.map(n => `<article class="post"><h3>${esc(n.title)}</h3><small>${n.createdAt?.toDate ? n.createdAt.toDate().toLocaleDateString("pt-PT", {dateStyle: "long"}) : ""} · ${esc(n.author || "")}${isAdmin ? ` <button class="btn del" data-del="news" data-id="${esc(n.id)}">Apagar</button>` : ""}</small>${n.image && n.image.startsWith("data:image/") ? `<img class="pimg" src="${n.image}" alt="">` : ""}<p style="white-space:pre-wrap;margin:6px 0 0">${esc(n.text)}</p></article>`).join("") : '<p class="hint">Ainda não há novidades. Os administradores podem publicar aqui.</p>';
+}
+async function loadWorld() {
+  if (Date.now() - worldAt < 600000) return; worldAt = Date.now();
+  const out = [];
+  await Promise.all(FEEDS.map(async ([src, url]) => {
+    try {
+      const j = await (await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(url))).json();
+      if (j.status === "ok") j.items.slice(0, 8).forEach(it => out.push({src, title: it.title, link: it.link, t: Date.parse(String(it.pubDate || "").replace(" ", "T") + "Z") || 0, img: it.thumbnail || it.enclosure?.link || ""}));
+    } catch (e) { console.error(e); }
+  }));
+  const list = out.filter(n => /^https?:\/\//.test(n.link)).sort((a, b) => b.t - a.t).slice(0, 12);
+  $("nWorld").innerHTML = list.length ? list.map(n => `<article class="post">${/^https:\/\//.test(n.img) ? `<img class="pimg" src="${esc(n.img)}" alt="" loading="lazy">` : ""}<h3><a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a></h3><small>${esc(n.src)}</small></article>`).join("") : '<p class="hint">Não foi possível carregar as notícias agora. Tenta mais tarde.</p>';
+}
+
+// ---------- Jogos ----------
+let GAMES = null, gRoomsList = [], gSub = null, gRun = null, gCur = null;
+const BOLHAS = {id: "bolhas", name: "Bubble Shooter", emoji: "🫧", desc: "Rebenta bolhas da mesma cor.", min: 1, max: 1, run: el => {
+  el.innerHTML = '<p class="gs">Pontos: <b id="bScore">0</b></p><canvas id="bCv" style="display:block;margin:0 auto;width:100%;max-width:320px;aspect-ratio:320/460;background:#0f2a45;border-radius:12px;touch-action:none"></canvas>';
+  return startGame($("bCv"), s => { $("bScore").textContent = s; });
+}};
+function stopGame() { gSub?.(); gSub = null; gRun?.stop?.(); gRun = null; gCur = null; }
+async function loadGames() {
+  if (GAMES) return GAMES;
+  try { GAMES = [...(await import("./jogos.js")).GAMES, BOLHAS]; }
+  catch (e) { console.error(e); $("gCount").textContent = "Falta enviar o ficheiro jogos.js para o GitHub (na mesma pasta do index.html)."; }
+  return GAMES;
+}
+async function showLobby() {
+  stopGame(); $("gLobby").hidden = false; $("gPlay").hidden = true;
+  if (!(await loadGames())) return;
+  $("gCount").textContent = `${GAMES.length} jogos · ${GAMES.filter(g => g.max >= 2).length} para jogar online com a família`;
+  $("gCards").innerHTML = GAMES.map(g => `<div class="gcard"><b>${g.emoji} ${esc(g.name)}</b><small>${esc(g.desc)}</small><div>${g.min <= 1 ? `<button class="btn small" data-solo="${g.id}">Jogar</button> ` : ""}${g.max >= 2 ? `<button class="btn small" data-new="${g.id}">Sala online</button>` : ""}</div></div>`).join("");
+  renderGRooms();
+}
+$("gCards").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const g = GAMES.find(x => x.id === (b.dataset.solo || b.dataset.new)); if (!g) return;
+  if (b.dataset.solo) playLocal(g); else createRoom(g);
+};
+$("gBack").onclick = () => showLobby();
+
+function playLocal(g) {
+  stopGame(); $("gLobby").hidden = true; $("gPlay").hidden = false; $("gTitle").textContent = g.emoji + " " + g.name;
+  if (g.run) { gRun = g.run($("gArea")); return; }
+  gCur = {g, mode: "local", i: 0, s: g.init(1)}; drawLocal();
+}
+const drawLocal = () => { $("gArea").innerHTML = gCur.g.html(gCur.s, 0, ["Tu"]) + '<p style="text-align:center"><button class="btn small" data-again>↻ Recomeçar</button></p>'; };
+function gMove(m) {
+  const c = gCur; if (!c) return;
+  const n = c.g.move(c.s, m, c.i); if (!n) return;
+  c.s = n;
+  if (c.mode === "local") drawLocal();
+  else updateDoc(doc(db, "gameRooms", c.id), {state: JSON.stringify(n)}).catch(e => toast("Erro: " + (e.code || "")));
+}
+$("gArea").onclick = e => {
+  const b = e.target.closest("button"); if (!b || !gCur) return;
+  const c = gCur;
+  if ("start" in b.dataset && c.mode === "online") return updateDoc(doc(db, "gameRooms", c.id), {status: "playing", state: JSON.stringify(c.g.init(c.r.players.length))});
+  if ("again" in b.dataset) {
+    if (c.mode === "local") { c.s = c.g.init(1); drawLocal(); }
+    else updateDoc(doc(db, "gameRooms", c.id), {state: JSON.stringify(c.g.init(c.r.players.length))});
+    return;
+  }
+  if (b.dataset.m === undefined) return;
+  let m = b.dataset.m; if (b.dataset.inp) m += ":" + ($(b.dataset.inp)?.value || "");
+  gMove(/^-?\d+$/.test(m) ? +m : m);
+};
+document.addEventListener("keydown", e => {
+  const k = gCur?.g.keys?.[e.key];
+  if (k && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); gMove(k); }
+});
+
+async function createRoom(g) {
+  try {
+    const ref = await addDoc(collection(db, "gameRooms"), {game: g.id, host: user.uid, status: "waiting", players: [{uid: user.uid, name: myName()}], uids: [user.uid], state: null, createdAt: serverTimestamp()});
+    openRoomGame(ref.id);
+  } catch (e) { console.error(e); toast("Erro ao criar sala: " + (e.code || "")); }
+}
+function renderGRooms() {
+  if (!GAMES) return;
+  const list = gRoomsList.filter(r => Date.now() - ms(r) < 12 * 3600e3 && GAMES.some(g => g.id === r.game));
+  $("gRooms").innerHTML = list.length ? list.map(r => {
+    const g = GAMES.find(x => x.id === r.game), mine = r.uids.includes(user.uid), full = r.players.length >= g.max;
+    return `<li><span>${g.emoji} ${esc(g.name)}<small>${r.players.map(p => esc(p.name)).join(", ")} · ${r.status === "waiting" ? "à espera" : "a jogar"}</small></span><span>${mine ? `<button class="btn small" data-open="${r.id}">Abrir</button>` : r.status === "waiting" && !full ? `<button class="btn small" data-join="${r.id}">Entrar</button>` : ""}${r.host === user.uid || isAdmin ? ` <button class="btn del" data-delroom="${r.id}">🗑</button>` : ""}</span></li>`;
+  }).join("") : "<li>Nenhuma sala aberta. Cria uma em «Sala online» num dos jogos.</li>";
+}
+$("gRooms").onclick = async e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.open) return openRoomGame(b.dataset.open);
+  if (b.dataset.join) {
+    try { await updateDoc(doc(db, "gameRooms", b.dataset.join), {players: arrayUnion({uid: user.uid, name: myName()}), uids: arrayUnion(user.uid)}); openRoomGame(b.dataset.join); }
+    catch (err) { toast("Não foi possível entrar na sala."); }
+    return;
+  }
+  if (b.dataset.delroom) run(() => deleteDoc(doc(db, "gameRooms", b.dataset.delroom)), "Sala apagada");
+};
+function openRoomGame(id) {
+  stopGame(); $("gLobby").hidden = true; $("gPlay").hidden = false;
+  gSub = onSnapshot(doc(db, "gameRooms", id), renderRoomGame, e => toast("Erro: " + (e.code || "")));
+}
+function renderRoomGame(s) {
+  if (!s.exists()) { toast("A sala foi apagada."); return showLobby(); }
+  const r = s.data(), g = GAMES.find(x => x.id === r.game), i = r.players.findIndex(p => p.uid === user.uid);
+  if (!g || i < 0) return showLobby();
+  const names = r.players.map(p => p.name);
+  gCur = {g, mode: "online", id: s.id, r, i, s: null};
+  $("gTitle").textContent = g.emoji + " " + g.name;
+  if (r.status === "waiting") {
+    if (r.host === user.uid && r.players.length >= g.max) updateDoc(doc(db, "gameRooms", s.id), {status: "playing", state: JSON.stringify(g.init(r.players.length))}).catch(console.error);
+    $("gArea").innerHTML = `<p class="gs">À espera de jogadores (${r.players.length}/${g.max})…</p><ul class="list">${names.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` +
+      (r.host === user.uid && r.players.length >= g.min && r.players.length < g.max ? '<p style="text-align:center"><button class="btn" data-start>Começar já</button></p>' : "") +
+      '<p class="hint">Diz à família para abrir Jogos → «Salas online abertas» e entrar.</p>';
+    return;
+  }
+  gCur.s = JSON.parse(r.state);
+  $("gArea").innerHTML = g.html(gCur.s, i, names) + (gCur.s.win != null && r.host === user.uid ? '<p style="text-align:center"><button class="btn small" data-again>↻ Jogar de novo</button></p>' : "");
+}
+
+$("btnAddGuest").onclick = () => {
+  const list = [...new Set($("guMail").value.toLowerCase().split(/[\s,;]+/).filter(m => /^\S+@\S+\.\S+$/.test(m)))];
+  if (!list.length) return toast("Escreve pelo menos um email válido.");
+  run(async () => { await Promise.all(list.map(m => setDoc(doc(db, "guests", m), {addedBy: user.email, createdAt: serverTimestamp()}))); $("guMail").value = ""; }, "Convidado adicionado");
+};
+let nImg = "";
+pickImg("nImgFile", "nImgSt", 900, 320000, d => nImg = d);
+$("btnNews").onclick = () => {
+  const title = $("nTitle").value.trim(), text = $("nText").value.trim();
+  if (!title) return toast("Escreve um título.");
+  run(async () => { await addDoc(collection(db, "news"), {title, text, image: nImg, author: myName(), createdAt: serverTimestamp()}); $("nTitle").value = ""; $("nText").value = ""; nImg = ""; $("nImgSt").textContent = ""; }, "Notícia publicada");
+};
 
 // ---------- Ações ----------
 const run = async (fn, ok) => { try { await fn(); toast(ok); } catch (e) { console.error(e); toast("Erro: " + (e.code || "ligação")); } };
